@@ -8,6 +8,7 @@ from .controllers import images
 from .controllers import applications
 from .controllers import articles
 from .controllers import news
+from .controllers import psy_tests
 
 
 api_router = APIRouter()
@@ -20,3 +21,4 @@ api_router.include_router(images.router)
 api_router.include_router(applications.router)
 api_router.include_router(articles.router)
 api_router.include_router(news.router)
+api_router.include_router(psy_tests.router)
