@@ -140,3 +140,30 @@ async def delete_psychologist(psychologist_id: UUID) -> bool:
     
     return True
 
+async def check_psychologist_availability(psychologist_id: UUID, scheduled_time) -> bool:
+    """
+    Проверяет доступность психолога на указанное время.
+    
+    Args:
+        psychologist_id: UUID психолога
+        scheduled_time: Время записи (datetime)
+        
+    Returns:
+        bool: True если психолог доступен, False если недоступен
+    """
+    async with get_async_db() as session:
+        result = await session.execute(
+            select(Psychologist)
+            .options(selectinload(Psychologist.statuses))
+            .where(Psychologist.id == psychologist_id)
+        )
+        psychologist = result.scalar_one_or_none()
+        
+        if psychologist is None:
+            raise PsychologistRoleNotFoundException()
+        
+        for status in psychologist.statuses:
+            if status.start_date <= scheduled_time <= status.end_date:
+                return False
+        
+    return True

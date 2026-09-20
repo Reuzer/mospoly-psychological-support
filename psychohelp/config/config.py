@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 load_dotenv()
 
+
 class Config:
     POSTGRES_USER = os.getenv("POSTGRES_USER", "myuser")
     POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "mypassword")

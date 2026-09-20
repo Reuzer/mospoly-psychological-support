@@ -44,3 +44,9 @@ class ApplicationNotFoundException(Exception):
     def __init__(self, application_id):
         self.application_id = application_id
         super().__init__(f"Заявка с ID {application_id} не найдена")
+
+class PsychologistUnavailableException(Exception):
+    def __init__(self, psychologist_id, scheduled_time):
+        self.psychologist_id = psychologist_id
+        self.scheduled_time = scheduled_time
+        super().__init__(f"Психолог с ID {psychologist_id} недоступен в {scheduled_time}")

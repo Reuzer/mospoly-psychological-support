@@ -139,6 +139,13 @@ async def create_appointment(
             detail="Необходимо указать место для онлайн встречи"
         )
     
+    except exc.PsychologistUnavailableException as e:
+        logger.error(f"Psychologist unavailable: {e.psychologist_id} at {e.scheduled_time}")
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=f"Психолог в отпуске или на больничном указанное время: {e.scheduled_time}"
+        )
+    
     # except Exception as e:
     #     logger.exception(f"Unexpected error during appointment creation: {str(e)}")
     #     raise HTTPException(
@@ -226,6 +233,11 @@ async def request_reschedule(
         raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
+    except exc.PsychologistUnavailableException as e:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=f"Вы находитесь в отпуске или на больничном в указанное время переноса",
+        )
 
 
 @router.post(
