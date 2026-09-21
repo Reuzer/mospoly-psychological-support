@@ -13,6 +13,7 @@ from psychohelp.repositories.applications import get_application_by_id
 from psychohelp.repositories.psychologists.psychologists import (
     get_psychologist_by_id,
     get_psychologist_by_user_id,
+    check_psychologist_availability
 )
 from psychohelp.repositories.users import get_user_by_id
 from psychohelp.models.appointments import Appointment, AppointmentType, AppointmentStatus
@@ -86,6 +87,10 @@ async def create_appointment(
         psychologist = await get_psychologist_by_user_id(psychologist_id)
     if psychologist is None:
         raise exc.PsychologistNotFoundException(psychologist_id)
+    
+    # Проверка доступности психолога на указанное время
+    if not await check_psychologist_availability(psychologist.id, scheduled_time_utc):
+        raise exc.PsychologistUnavailableException(psychologist.id, scheduled_time_utc)
 
     match type:
         case AppointmentType.Offline:
@@ -170,6 +175,14 @@ async def request_appointment_reschedule(
     comment: str | None = None,
 ):
     scheduled_time_utc, remind_time_utc = _validate_appointment_time(scheduled_time, remind_time)
+
+    psychologist = await get_psychologist_by_user_id(psychologist_user_id)
+    if psychologist is None:
+        raise exc.PsychologistNotFoundException(psychologist_user_id)
+    
+    if not await check_psychologist_availability(psychologist.id, scheduled_time_utc):
+        raise exc.PsychologistUnavailableException(psychologist.id, scheduled_time_utc)
+    
     return await reschedule_repo.create_reschedule_request(
         appointment_id=appointment_id,
         psychologist_user_id=psychologist_user_id,
