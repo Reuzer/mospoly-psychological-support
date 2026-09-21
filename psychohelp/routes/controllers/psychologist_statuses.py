@@ -94,7 +94,7 @@ async def delete_psychologist_status(
     is_edit_own_allowed = await user_has_permission(current_user.id, PermissionCode.PSYCHOLOGISTS_EDIT_OWN_PROFILE)
 
     if not is_manage_allowed:
-        if not is_edit_own_allowed and current_user.id != user_id:
+        if not is_edit_own_allowed or current_user.id != user_id:
             raise HTTPException(
                 status_code=HTTP_403_FORBIDDEN,
                 detail="Недостаточно прав для удаления статуса психолога"
