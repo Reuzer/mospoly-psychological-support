@@ -18,7 +18,7 @@ down_revision: Union[str, Sequence[str], None] = 'c8f9e0a1b2c3'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-test_type_enum = postgresql.ENUM('ENTERTAINING', 'MEDICAL', name='testtype')
+test_type_enum = postgresql.ENUM('ENTERTAINING', 'MEDICAL', name='testtype', create_type=False)
 
 
 def upgrade() -> None:
@@ -31,7 +31,7 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('title', sa.String(length=255), nullable=False, comment='Название теста'),
     sa.Column('description', sa.Text(), nullable=False, comment='Описание теста'),
-    sa.Column('type', sa.Enum('ENTERTAINING', 'MEDICAL', name='testtype'), nullable=False, comment='Тип теста: мед или развл'),
+    sa.Column('type', test_type_enum, nullable=False, comment='Тип теста: мед или развл'),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
