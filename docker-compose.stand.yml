@@ -1,0 +1,81 @@
+# Compose для стенда (prod или dev). Стенд выбирается переменной STAND в .env.
+#
+#   docker compose -f docker-compose.stand.yml up -d
+#
+# Наружу не публикуется ни одного порта: api доступен только внутри сети
+# psycho-${STAND}, куда со стороны фронтенда подключается nginx.
+name: psycho-back-${STAND}
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: psycho-api:${STAND}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Хост и порт БД задаются здесь, а не в .env - внутри сети compose
+      # они всегда одни и те же.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      IMAGE_DIR: /srv/images
+    volumes:
+      - images:/srv/images
+    networks:
+      stand:
+        aliases:
+          - api
+      internal: {}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # curl в slim-образе нет, поэтому проверяем средствами python.
+      # /openapi.json FastAPI отдаёт сам, отдельный /health не нужен.
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json')"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Только внутренняя сеть: до БД не достучится даже nginx стенда.
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+
+volumes:
+  pgdata:
+  images:
+
+networks:
+  # Создаётся один раз руками: docker network create psycho-prod / psycho-dev
+  stand:
+    name: psycho-${STAND}
+    external: true
+  internal:

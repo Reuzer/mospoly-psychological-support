@@ -1,0 +1,46 @@
+# Продакшен-образ для стендов. Локальная разработка по-прежнему использует Dockerfile.
+FROM python:3.13-slim AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
+
+WORKDIR /app
+
+# Сначала только манифесты - слой с зависимостями переиспользуется,
+# пока не меняются pyproject.toml / uv.lock
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev
+
+COPY . .
+RUN uv sync --frozen --no-dev
+
+
+FROM python:3.13-slim
+
+# Пользователь без root: контейнер пишет только в /srv/images
+RUN useradd --create-home --uid 1000 app \
+    && mkdir -p /srv/images \
+    && chown app:app /srv/images
+
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY --chown=app:app . .
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    IMAGE_DIR=/srv/images
+
+USER app
+
+EXPOSE 8000
+
+# Запускаем uvicorn напрямую, минуя psychohelp.main:main() - там reload=True,
+# который в проде не нужен.
+CMD ["uvicorn", "psychohelp.main:app", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--proxy-headers", "--forwarded-allow-ips", "*"]
