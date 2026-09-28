@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import HTTPException, APIRouter, Query, Request, Depends
+from fastapi import HTTPException, APIRouter, Query, Request, Depends, status
 from starlette.status import (
     HTTP_201_CREATED,
     HTTP_400_BAD_REQUEST,
@@ -26,6 +26,14 @@ from psychohelp.services.rbac.permissions import require_permission, user_has_pe
 from psychohelp.constants.rbac import PermissionCode, RoleCode
 from psychohelp.dependencies.auth import get_current_user
 from psychohelp.models.users import User
+from psychohelp.schemas.psychologists import PsychologistScheduleResponse, ScheduleSlot
+
+from typing import Optional
+from datetime import datetime, date as date_type, time, timezone, timedelta
+from psychohelp.config.config import get_async_db
+from psychohelp.models.psychologists import Psychologist
+from psychohelp.models.appointments import Appointment, AppointmentStatus
+from sqlalchemy import select
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/therapists", tags=["therapists"])
@@ -104,4 +112,86 @@ async def delete_psychologist_endpoint(request: Request, psychologist_id: UUID) 
     
     logger.info(f"Psychologist deleted: {psychologist_id}")
     return {"message": "Psychologist successfully deleted"}
+
+
+@router.get(
+    "/{id}/schedule",
+    response_model=PsychologistScheduleResponse,
+    summary="Доступные временные слоты психолога"
+)
+async def get_psychologist_schedule(
+        id: UUID,
+        date: Optional[str] = Query(None, description="Фильтр по дате (YYYY-MM-DD)"),
+        duration: Optional[int] = Query(None, description="Длительность (60 или 90)")
+) -> PsychologistScheduleResponse:
+    # Проверка duration
+    if duration is not None and duration not in (60, 90):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"errors": {"duration": "Duration must be either 60 or 90 minutes"}}
+        )
+
+    # Валидация даты (если передана)
+    target_date = None
+    if date:
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"errors": {"date": "Invalid date format. Expected YYYY-MM-DD"}}
+            )
+
+    # Ищем психолога в базе
+    async with get_async_db() as session:
+        psychologist = await session.get(Psychologist, id)
+        if not psychologist:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Психолог не найден")
+
+        # Достаем уже занятые записи этого психолога (чтобы не предлагать занятое время)
+        stmt = select(Appointment).where(
+            Appointment.psychologist_id == id,
+            Appointment.status != AppointmentStatus.Cancelled
+        )
+        result = await session.execute(stmt)
+        booked_appointments = result.scalars().all()
+        # Собираем занятые даты и часы
+        booked_times = {app.scheduled_time for app in booked_appointments if app.scheduled_time}
+
+    days_to_generate = [target_date] if target_date else [
+        date_type.today() + timedelta(days=i) for i in range(1, 4)
+    ]
+
+    work_hours = [10, 12, 14, 16]
+    durations_to_generate = [duration] if duration else [60, 90]
+
+    available_slots = []
+
+    for d in days_to_generate:
+        for hour in work_hours:
+            for dur in durations_to_generate:
+                tz = timezone(timedelta(hours=3))
+                slot_time = datetime.combine(d, time(hour, 0), tzinfo=tz)
+
+                # Если это время уже забронировано — пропускаем слот
+                if slot_time in booked_times:
+                    continue
+
+                # Чередуем очные и онлайн слоты
+                is_offline = (hour % 4 == 0)  # 12:00 и 16:00 очно, остальные онлайн
+                format_type = "очно" if is_offline else "онлайн"
+
+                address = psychologist.office if is_offline else None
+
+                available_slots.append(
+                    ScheduleSlot(
+                        datetime=slot_time.isoformat(),
+                        duration=dur,
+                        format=format_type,
+                        address=address,
+                        price=3000  # Стандартная стоимость сессии
+                    )
+                )
+
+    return PsychologistScheduleResponse(available_slots=available_slots)
 

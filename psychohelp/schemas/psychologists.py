@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from pydantic import BaseModel
+from typing import Optional
 
 
 class PsychologistBase(BaseModel):
@@ -65,4 +66,15 @@ class PsychologistResponse(BaseModel):
             last_name=psychologist.user.last_name,
             phone_number=psychologist.user.phone_number,
         )
+
+
+class ScheduleSlot(BaseModel):
+    datetime: str
+    duration: int
+    format: str
+    address: Optional[str] = None
+    price: int
+
+class PsychologistScheduleResponse(BaseModel):
+    available_slots: list[ScheduleSlot]
 
