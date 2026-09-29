@@ -8,6 +8,7 @@ from psychohelp.repositories.appointments import (
     create_appointment as repo_create_appointment,
     cancel_appointment_by_id as repo_cancel_appointment_by_id,
     get_appointments_by_user_id as repo_get_appointments_by_user_id,
+    update_emergency_contact as repo_update_emergency_contact,
 )
 from psychohelp.repositories.applications import get_application_by_id
 from psychohelp.repositories.psychologists.psychologists import (
@@ -54,6 +55,12 @@ def _validate_appointment_time(
 
 async def get_appointment_by_id(appointment_id: UUID, user_id: UUID) -> Appointment | None:
     return await repo_get_appointment_by_id(appointment_id, user_id)
+
+
+async def update_emergency_contact(
+    appointment_id: UUID, user_id: UUID, emergency_contact: str | None,
+) -> Appointment:
+    return await repo_update_emergency_contact(appointment_id, user_id, emergency_contact)
 
 
 async def create_appointment(

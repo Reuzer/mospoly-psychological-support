@@ -34,6 +34,12 @@ class AppointmentNotFoundException(Exception):
         super().__init__(f"Запись на прием с ID {appointment_id} не найдена")
 
 
+class AppointmentNotActiveException(Exception):
+    def __init__(self, appointment_id):
+        self.appointment_id = appointment_id
+        super().__init__("Экстренный контакт можно изменить только в активной записи")
+
+
 class AppointmentAlreadyCancelledException(Exception):
     def __init__(self, appointment_id):
         self.appointment_id = appointment_id

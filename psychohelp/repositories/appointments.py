@@ -8,6 +8,10 @@ from sqlalchemy.orm import selectinload
 from psychohelp.models.psychologists import Psychologist
 from psychohelp.models.users import User
 from psychohelp.config.config import get_async_db
+from psychohelp.services.appointments.exceptions import (
+    AppointmentNotActiveException,
+    AppointmentNotFoundException,
+)
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
@@ -32,6 +36,34 @@ async def get_appointment_by_id(appointment_id: UUID, user_id: UUID) -> Appointm
         
         result = await session.execute(query)
         return result.scalar_one_or_none()
+
+
+async def update_emergency_contact(
+    appointment_id: UUID, user_id: UUID, emergency_contact: str | None,
+) -> Appointment:
+    async with get_async_db() as session:
+        result = await session.execute(
+            select(Appointment)
+            .options(
+                selectinload(Appointment.patient),
+                selectinload(Appointment.psychologist).selectinload(Psychologist.user),
+            )
+            .where(Appointment.id == appointment_id)
+            .with_for_update()
+        )
+        appointment = result.scalar_one_or_none()
+        if appointment is None or (
+            appointment.patient_id != user_id
+            and appointment.psychologist.user_id != user_id
+        ):
+            raise AppointmentNotFoundException(appointment_id)
+        if appointment.status != AppointmentStatus.awaiting:
+            raise AppointmentNotActiveException(appointment_id)
+
+        appointment.emergency_contact = emergency_contact
+        appointment.last_change_time = datetime.now(timezone.utc)
+        await session.commit()
+        return appointment
 
 
 async def create_appointment(

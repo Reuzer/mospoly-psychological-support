@@ -12,6 +12,10 @@ servers:
 
 components:
   securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
     bearerAuth:
       type: http
       scheme: bearer
@@ -110,18 +114,54 @@ components:
           type: string
           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-    AppointmentBase:
+    AppointmentPsychologistResponse:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        patient_id:
+        user_id:
           type: string
           format: uuid
-        therapist_id:
+        user:
+          $ref: '#/components/schemas/UserBase'
+        experience:
+          type: string
+        qualification:
+          type: string
+        consult_areas:
+          type: string
+        description:
+          type: string
+        office:
+          type: string
+        education:
+          type: string
+        short_description:
+          type: string
+        photo:
+          type: string
+          nullable: true
+
+    AppointmentBase:
+      type: object
+      properties:
+        emergency_contact:
+          type: string
+          nullable: true
+          maxLength: 512
+          description: Экстренный контакт; изменяется участниками только в статусе awaiting.
+        id:
           type: string
           format: uuid
+        patient:
+          $ref: '#/components/schemas/UserBase'
+        psychologist:
+          $ref: '#/components/schemas/AppointmentPsychologistResponse'
+        application_id:
+          type: string
+          format: uuid
+          nullable: true
         type:
           type: string
           enum: [Online, Offline]
@@ -130,15 +170,43 @@ components:
           nullable: true
         status:
           type: string
-          enum: [Accepted, Cancelled, Done]
+          enum: [awaiting, cancelled, done]
+        scheduled_time:
+          type: string
+          format: date-time
         remind_time:
           type: string
           format: date-time
+          nullable: true
         last_change_time:
           type: string
           format: date-time
         venue:
           type: string
+
+        comment:
+          type: string
+          nullable: true
+        cancel_reason:
+          type: string
+          nullable: true
+        patient_comment:
+          type: string
+          nullable: true
+        conclusion:
+          type: string
+          nullable: true
+
+    AppointmentEmergencyContactRequest:
+      type: object
+      additionalProperties: false
+      required: [emergency_contact]
+      properties:
+        emergency_contact:
+          type: string
+          nullable: true
+          maxLength: 512
+          description: Пробелы по краям удаляются до проверки длины. null или пустая строка очищают контакт.
 
     AppointmentCreateRequest:
       type: object
@@ -379,6 +447,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /appointments/{id}/emergency-contact:
+    patch:
+      tags: [appointments]
+      summary: Изменить или очистить экстренный контакт
+      description: Доступно студенту этой записи и назначенному психологу только в статусе awaiting.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentEmergencyContactRequest'
+      responses:
+        '200':
+          description: Обновлённая запись
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentBase'
+        '401':
+          description: Пользователь не авторизован
+        '404':
+          description: Запись не найдена или недоступна пользователю
+        '409':
+          description: Запись завершена или отменена
+        '422':
+          description: Некорректный UUID или тело запроса
 
   /appointments/{appointment_id}:
     get:

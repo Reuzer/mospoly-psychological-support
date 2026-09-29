@@ -5,6 +5,7 @@ from starlette.status import (
     HTTP_401_UNAUTHORIZED,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
+    HTTP_409_CONFLICT,
     HTTP_422_UNPROCESSABLE_ENTITY,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
@@ -21,6 +22,7 @@ from psychohelp.services.appointments.appointments import (
     get_appointment_reschedule_requests,
     reject_appointment_reschedule,
     request_appointment_reschedule,
+    update_emergency_contact,
 )
 from psychohelp.services.appointments import exceptions as exc
 from psychohelp.schemas.appointments import (
@@ -28,6 +30,7 @@ from psychohelp.schemas.appointments import (
     AppointmentCreateRequest,
     AppointmentCancelRequest,
     AppointmentDoneRequest,
+    AppointmentEmergencyContactRequest,
     AppointmentRescheduleCancelRequest,
     AppointmentRescheduleRequestCreate,
     AppointmentRescheduleRequestResponse,
@@ -169,6 +172,30 @@ async def get_appointment(
     
     logger.info(f"Appointment retrieved: {id} by user: {current_user.id}")
     return appointment
+
+
+@router.patch(
+    "/{id}/emergency-contact",
+    response_model=AppointmentBase,
+    summary="Изменить или очистить экстренный контакт",
+    responses={
+        401: {"description": "Пользователь не авторизован"},
+        404: {"description": "Запись не найдена или недоступна пользователю"},
+        409: {"description": "Запись завершена или отменена"},
+    },
+)
+async def update_emergency_contact_endpoint(
+    id: UUID,
+    request: AppointmentEmergencyContactRequest,
+    current_user: User = Depends(get_current_user),
+) -> AppointmentBase:
+    """Участники могут менять контакт в awaiting-записи; null очищает поле."""
+    try:
+        return await update_emergency_contact(id, current_user.id, request.emergency_contact)
+    except exc.AppointmentNotFoundException:
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Встреча не найдена")
+    except exc.AppointmentNotActiveException as e:
+        raise HTTPException(status_code=HTTP_409_CONFLICT, detail=str(e))
 
 
 @router.put("/{id}/cancel")
