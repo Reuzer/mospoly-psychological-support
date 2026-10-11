@@ -99,13 +99,21 @@ async def login(request: Request, data: LoginRequest, response: Response) -> Use
             status_code=HTTP_401_UNAUTHORIZED, detail="Неверные данные"
     )
 
+class MessageResponse(BaseModel):
+    message: str
 
-@router.post("/logout")
-async def logout(response: Response) -> Response:
-    response.status_code = HTTP_200_OK
-    response.delete_cookie("access_token", secure=False, samesite="Lax")
-    response.delete_cookie("refresh_token", secure=False, samesite="Lax")
-    return response
+@router.post("/logout", response_model=MessageResponse, summary="Выход из системы")
+async def logout(request: Request, response: Response) -> MessageResponse:
+    token = request.cookies.get("access_token")
+    if token is None:
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED, detail="Пользователь не авторизован"
+        )
+
+    response.delete_cookie("access_token", secure=True, httponly=True, samesite="Lax")
+    response.delete_cookie("refresh_token", secure=True, httponly=True, samesite="Lax")
+
+    return MessageResponse(message="Успешный выход из системы")
 
 
 @router.post("/refresh", response_model=UserResponse)
