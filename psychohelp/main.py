@@ -31,6 +31,7 @@ import uvicorn
 
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
+from fastapi.staticfiles import StaticFiles
 
 log_level = os.getenv("LOG_LEVEL", "DEBUG")
 log_file_path = os.getenv("LOG_FILE")
@@ -102,6 +103,7 @@ def get_application() -> FastAPI:
 
 app = get_application()
 
+app.mount("/media/avatars", StaticFiles(directory="srv/images/avatars"), name="avatar")
 
 def main():
     uvicorn.run(
