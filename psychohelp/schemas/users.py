@@ -46,6 +46,17 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class PsychologistPublicCard(BaseModel):
+    """Публичная карточка психолога: без контактов и учебных данных"""
+    id: UUID
+    first_name: str
+    middle_name: str | None = None
+    last_name: str
+
+    class Config:
+        from_attributes = True
+
+
 class TokenResponse(BaseModel):
     status_code: int
     access_token: str

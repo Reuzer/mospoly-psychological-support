@@ -22,6 +22,7 @@ class PermissionCode(str, Enum):
     
     # Users permissions
     USERS_EDIT_OWN_PROFILE = "users.edit_own_profile"
+    USERS_VIEW_ALL = "users.view_all"
     
     # Psychologists permissions
     PSYCHOLOGISTS_EDIT_OWN_PROFILE = "psychologists.edit_own_profile"

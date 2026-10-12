@@ -23,6 +23,7 @@ from psychohelp.schemas.users import (
     LoginRequest,
     PasswordResetConfirmRequest,
     PasswordResetRequest,
+    PsychologistPublicCard,
     UserCreateRequest,
     UserResponse,
 )
@@ -39,8 +40,9 @@ from psychohelp.services.users.password_reset import (
 )
 from psychohelp.services.users.users import update_profile, change_password
 from psychohelp.services.users.exceptions import PermissionDenied, UserNotFound
-from psychohelp.constants.rbac import RoleCode
-from psychohelp.dependencies.auth import get_current_user
+from psychohelp.constants.rbac import PermissionCode, RoleCode
+from psychohelp.dependencies.auth import get_current_user, get_optional_user
+from psychohelp.services.rbac.permissions import user_has_permission
 
 logger = get_logger(__name__)
 from slowapi import Limiter
@@ -57,15 +59,33 @@ async def user_token(
     return current_user
 
 
-@router.get("/user/{id}", response_model=UserResponse)
-async def user(id: users.UUID) -> UserResponse:
+@router.get("/user/{id}", response_model=UserResponse | PsychologistPublicCard)
+async def user(
+    id: users.UUID,
+    current_user: User | None = Depends(get_optional_user),
+) -> UserResponse | PsychologistPublicCard:
+    """Полный профиль — самому пользователю или сотруднику с users.view_all.
+    Остальным доступна только публичная карточка психолога."""
     user = await users.get_user_by_id(id)
     if user is None:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND, detail="Пользователь не найден"
         )
 
-    return user
+    if current_user is not None and (
+        current_user.id == user.id
+        or await user_has_permission(current_user.id, PermissionCode.USERS_VIEW_ALL)
+    ):
+        return UserResponse.model_validate(user)
+
+    if any(role.code == RoleCode.PSYCHOLOGIST for role in user.roles):
+        return PsychologistPublicCard.model_validate(user)
+
+    if current_user is None:
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED, detail="Пользователь не авторизован"
+        )
+    raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Доступ запрещен")
 
 
 @router.post("/register", response_model=UserResponse, status_code=HTTP_201_CREATED)
