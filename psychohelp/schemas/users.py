@@ -3,6 +3,7 @@ from pydantic_extra_types.phone_numbers import PhoneNumber
 from typing import Optional
 from psychohelp.schemas.roles import RoleResponse 
 from uuid import UUID
+from fastapi import UploadFile, File
 
 
 PhoneNumber.phone_format = "E164"
@@ -45,6 +46,12 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class SetUserAvatarResponse(BaseModel):
+    msg: str
+
+class GetUserAvatarResponse(BaseModel):
+    id: UUID
+    avatar_url: str | None = None
 
 class PsychologistPublicCard(BaseModel):
     """Публичная карточка психолога: без контактов и учебных данных"""

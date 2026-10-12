@@ -4,17 +4,21 @@ from psychohelp.repositories.users import (
     get_user_by_email as repo_get_user_by_email,
     get_user_by_token as repo_get_user_by_token,
     create_user,
+    get_avatar,
     UUID,
 )
 from psychohelp.models.users import User
 from psychohelp.services.users import exceptions, models
 from psychohelp.schemas.users import UserUpdateRequest
-from psychohelp.repositories.users import update_user, get_user_by_id
-from psychohelp.services.users.exceptions import UserNotFound, PermissionDenied
+from psychohelp.repositories.users import update_user, get_user_by_id, set_avatar
+from psychohelp.services.users.exceptions import UserNotFound, PermissionDenied, InvalidImageError, ImageProcessingError
 from psychohelp.repositories import verify_password, hash_password
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from starlette.status import HTTP_409_CONFLICT
+from pathlib import Path
+from PIL import Image, UnidentifiedImageError
+import io
 
 
 async def get_user_by_id(user_id: UUID) -> User | None:
@@ -125,3 +129,49 @@ async def change_password(
         raise ValueError("Неверный старый пароль")
 
     await update_user(user_id, {"password": hash_password(new_password)})
+
+
+async def set_user_avatar(avatar, user):
+    ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+    BASE_DIR = Path("/app")
+    UPLOAD_DIR = BASE_DIR / "srv" / "images" / "avatars"
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    file_name = f"{user.id}.webp"
+    file_path = UPLOAD_DIR / file_name
+
+    try:
+        contents = await avatar.read()
+
+        image_stream = io.BytesIO(contents)
+
+        with Image.open(image_stream) as img:
+            if img.format not in ALLOWED_FORMATS:
+                raise InvalidImageError(f"Invalid image format: {img.format}")
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGBA")
+            else:
+                img = img.convert("RGB")
+
+            img.save(file_path, "WEBP", quality=85)
+        await set_avatar(file_name, user)
+
+    except UnidentifiedImageError as e:
+        if file_path.exists():
+            file_path.unlink()
+        raise InvalidImageError("Uploaded file is not a valid image.") from e
+    
+    except OSError as e:
+        if file_path.exists():
+            file_path.unlink()
+        raise ImageProcessingError("Could not process image due to server error.") from e
+
+
+async def get_user_avatar(user_id):
+    user = await get_avatar(user_id)
+
+    if not user:
+        raise UserNotFound(user_id)
+
+    avatar_url = f"/media/avatars/{user.avatar}"
+    return avatar_url
