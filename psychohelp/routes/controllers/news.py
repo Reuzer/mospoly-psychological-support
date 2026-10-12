@@ -31,7 +31,15 @@ def _ensure_admin(user: User) -> None:
         )
 
 
-@router.get("/", response_model=list[NewsResponse])
+@router.get(
+    "/",
+    response_model=list[NewsResponse],
+    summary="Получить список новостей",
+    description=(
+        "Возвращает список новостей с пагинацией: skip задаёт число пропускаемых записей, take — "
+        "размер выборки. Авторизация не требуется."
+    ),
+)
 async def get_news_list(
     skip: int = Query(0, ge=0, description="Количество записей для пропуска"),
     take: int = Query(100, gt=0, le=100, description="Количество записей для получения"),
@@ -40,7 +48,15 @@ async def get_news_list(
     return news_list
 
 
-@router.get("/{news_id}", response_model=NewsResponse)
+@router.get(
+    "/{news_id}",
+    response_model=NewsResponse,
+    summary="Получить новость по ID",
+    description=(
+        "Возвращает данные новости по её идентификатору. Авторизация не требуется; если новость "
+        "не найдена, возвращает 404."
+    ),
+)
 async def get_news(news_id: UUID) -> NewsResponse:
     news_item = await news_service.get_news_by_id(news_id)
     if news_item is None:
@@ -48,7 +64,16 @@ async def get_news(news_id: UUID) -> NewsResponse:
     return news_item
 
 
-@router.post("/", response_model=NewsResponse, status_code=HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=NewsResponse,
+    status_code=HTTP_201_CREATED,
+    summary="Создать новость",
+    description=(
+        "Создаёт новость из переданных данных и возвращает её. Доступно только авторизованному "
+        "администратору."
+    ),
+)
 async def create_news(
     data: NewsCreateRequest,
     current_user: User = Depends(get_current_user),
@@ -59,7 +84,15 @@ async def create_news(
     return news_item
 
 
-@router.put("/{news_id}", response_model=NewsResponse)
+@router.put(
+    "/{news_id}",
+    response_model=NewsResponse,
+    summary="Обновить новость",
+    description=(
+        "Обновляет данные новости по её идентификатору и возвращает результат. Доступно только "
+        "авторизованному администратору."
+    ),
+)
 async def update_news(
     news_id: UUID,
     data: NewsUpdateRequest,
@@ -73,7 +106,14 @@ async def update_news(
     return news_item
 
 
-@router.delete("/{news_id}")
+@router.delete(
+    "/{news_id}",
+    summary="Удалить новость",
+    description=(
+        "Удаляет новость по её идентификатору и возвращает сообщение об удалении. Доступно только "
+        "авторизованному администратору."
+    ),
+)
 async def delete_news(
     news_id: UUID,
     current_user: User = Depends(get_current_user),

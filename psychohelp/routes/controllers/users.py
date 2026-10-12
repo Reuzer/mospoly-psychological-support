@@ -48,7 +48,15 @@ limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/user", response_model=UserResponse)
+@router.get(
+    "/user",
+    response_model=UserResponse,
+    summary="Получить текущего пользователя",
+    description=(
+        "Возвращает профиль пользователя, определённого по access_token в cookie. Требуется "
+        "авторизация."
+    ),
+)
 async def user_token(request: Request) -> UserResponse:
     token = request.cookies.get("access_token")
     if not token:
@@ -65,7 +73,15 @@ async def user_token(request: Request) -> UserResponse:
     return user
 
 
-@router.get("/user/{id}", response_model=UserResponse)
+@router.get(
+    "/user/{id}",
+    response_model=UserResponse,
+    summary="Получить пользователя по ID",
+    description=(
+        "Возвращает профиль пользователя по его идентификатору. Авторизация не требуется; если "
+        "пользователь не найден, возвращает 404."
+    ),
+)
 async def user(id: users.UUID) -> UserResponse:
     user = await users.get_user_by_id(id)
     if user is None:
@@ -76,7 +92,15 @@ async def user(id: users.UUID) -> UserResponse:
     return user
 
 
-@router.post("/register", response_model=UserResponse)
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    summary="Зарегистрировать пользователя",
+    description=(
+        "Создаёт пользователя, возвращает его профиль и устанавливает cookie access_token и "
+        "refresh_token для авторизации."
+    ),
+)
 async def register_users(user_data: UserCreateRequest, response: Response) -> UserResponse:
     try:
         user, token, refresh_token = await users.register_user(**user_data.model_dump())
@@ -90,7 +114,15 @@ async def register_users(user_data: UserCreateRequest, response: Response) -> Us
     return user
 
 
-@router.post("/login", response_model=UserResponse)
+@router.post(
+    "/login",
+    response_model=UserResponse,
+    summary="Войти в аккаунт",
+    description=(
+        "Проверяет email и пароль, возвращает профиль пользователя и устанавливает cookie "
+        "access_token и refresh_token. Допускается не более пяти запросов в минуту с одного IP."
+    ),
+)
 @limiter.limit("5/minute")
 async def login(request: Request, data: LoginRequest, response: Response) -> UserResponse:
     try:
@@ -109,7 +141,14 @@ async def login(request: Request, data: LoginRequest, response: Response) -> Use
     )
 
 
-@router.post("/logout")
+@router.post(
+    "/logout",
+    summary="Выйти из аккаунта",
+    description=(
+        "Удаляет cookie access_token и refresh_token. В запросе должна присутствовать cookie "
+        "access_token."
+    ),
+)
 async def logout(request: Request, response: Response) -> Response:
     token = request.cookies.get("access_token")
     if token is None:
@@ -122,7 +161,15 @@ async def logout(request: Request, response: Response) -> Response:
     response.delete_cookie("refresh_token", secure=False, samesite="Lax")
     return response
 
-@router.post("/refresh", response_model=UserResponse)
+@router.post(
+    "/refresh",
+    response_model=UserResponse,
+    summary="Обновить токен доступа",
+    description=(
+        "Обновляет cookie access_token по refresh_token из cookie и возвращает профиль "
+        "пользователя."
+    ),
+)
 async def refresh_token(request: Request, response: Response) -> UserResponse:
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token is None:
@@ -145,7 +192,16 @@ async def refresh_token(request: Request, response: Response) -> UserResponse:
         )
 
 
-@router.post("/password-reset/request", status_code=HTTP_200_OK)
+@router.post(
+    "/password-reset/request",
+    status_code=HTTP_200_OK,
+    summary="Запросить восстановление пароля",
+    description=(
+        "Отправляет письмо со ссылкой восстановления, если пользователь с указанным email "
+        "существует. Ответ не раскрывает наличие аккаунта; допускается не более пяти запросов в "
+        "минуту с одного IP."
+    ),
+)
 @limiter.limit("5/minute")
 async def request_password_reset_email(
     request: Request,
@@ -161,7 +217,15 @@ async def request_password_reset_email(
     return {"message": message}
 
 
-@router.post("/password-reset/confirm", status_code=HTTP_200_OK)
+@router.post(
+    "/password-reset/confirm",
+    status_code=HTTP_200_OK,
+    summary="Восстановить пароль по ссылке",
+    description=(
+        "Устанавливает новый пароль по действующему одноразовому токену из письма. Допускается не "
+        "более десяти запросов в минуту с одного IP."
+    ),
+)
 @limiter.limit("10/minute")
 async def confirm_password_reset(
     request: Request,
@@ -177,7 +241,15 @@ async def confirm_password_reset(
     return {"message": "Пароль успешно изменён"}
 
 
-@router.put("/me", response_model=UserResponse)
+@router.put(
+    "/me",
+    response_model=UserResponse,
+    summary="Обновить свой профиль",
+    description=(
+        "Обновляет профиль текущего пользователя по переданным данным и возвращает результат. "
+        "Требуется авторизация через cookie access_token."
+    ),
+)
 async def update_my_profile(
     request: Request,
     data: UserUpdateRequest
@@ -242,7 +314,12 @@ async def update_my_profile(
 class UserStatusResponse(BaseModel):
     status: Optional[str] = None
 
-@router.get("/me/status", response_model=UserStatusResponse, summary="Получить статус обучающегося")
+@router.get(
+    "/me/status",
+    response_model=UserStatusResponse,
+    summary="Получить статус обучающегося",
+    description="Возвращает статус текущего пользователя в университете. Требуется авторизация.",
+)
 async def get_my_status(
     request: Request,
     current_user: User = Depends(get_current_user)
@@ -254,7 +331,15 @@ async def get_my_status(
     return UserStatusResponse.model_validate(user_status)
 
 
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put(
+    "/{user_id}",
+    response_model=UserResponse,
+    summary="Обновить профиль пользователя",
+    description=(
+        "Обновляет профиль пользователя по указанному ID и возвращает результат. Доступно только "
+        "авторизованному администратору."
+    ),
+)
 async def update_user_by_id(
     request: Request,
     user_id: UUID,
@@ -320,7 +405,15 @@ async def update_user_by_id(
     return UserResponse.model_validate(updated_user)
 
 
-@router.post("/me/password", status_code=HTTP_200_OK)
+@router.post(
+    "/me/password",
+    status_code=HTTP_200_OK,
+    summary="Изменить свой пароль",
+    description=(
+        "Проверяет текущий пароль и устанавливает новый пароль для авторизованного пользователя. "
+        "Возвращает сообщение об успешной смене пароля."
+    ),
+)
 async def change_my_password(
     request: Request,
     data: PasswordChangeRequest

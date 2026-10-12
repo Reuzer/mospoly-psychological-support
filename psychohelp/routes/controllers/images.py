@@ -14,7 +14,14 @@ IMAGE_DIR = os.getenv("IMAGE_DIR", "/srv/images")
 EXTENSIONS_WHITE_LIST = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico"}
 
 
-@router.get("/image/{filename}")
+@router.get(
+    "/image/{filename}",
+    summary="Получить изображение",
+    description=(
+        "Возвращает файл изображения по имени из настроенного каталога изображений. Допускаются "
+        "только поддерживаемые расширения; если файл не найден, возвращает 404."
+    ),
+)
 async def get_dynamic_image(filename: str):
     """
     Получить изображение по имени файла.

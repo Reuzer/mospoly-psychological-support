@@ -42,7 +42,11 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 
-@router.get("/university-statuses", summary="Получить статусы в университете")
+@router.get(
+    "/university-statuses",
+    summary="Получить статусы в университете",
+    description="Возвращает допустимые статусы заявителя в университете для заполнения заявки.",
+)
 async def get_university_statuses() -> list[str]:
     """
         Возвращает список всех доступных статусов в университете
@@ -70,7 +74,16 @@ async def _is_psychologist(user_id: UUID) -> bool:
 
 
 # 1. Создание заявки (открыто для всех)
-@router.post("/", response_model=ApplicationResponse, status_code=HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=ApplicationResponse,
+    status_code=HTTP_201_CREATED,
+    summary="Создать заявку на консультацию",
+    description=(
+        "Создаёт заявку на психологическую консультацию для текущего пользователя и возвращает её "
+        "данные. Требуется авторизация."
+    ),
+)
 async def create_application_endpoint(
     request: Request,
     data: ApplicationCreateRequest
@@ -86,7 +99,15 @@ async def create_application_endpoint(
 
 
 # 2. Получение списка заявок (только для руководителей/психологов, с фильтрацией)
-@router.get("/", response_model=list[ApplicationResponse])
+@router.get(
+    "/",
+    response_model=list[ApplicationResponse],
+    summary="Получить список заявок",
+    description=(
+        "Возвращает заявки с пагинацией, фильтрацией и сортировкой. Пользователь видит свои "
+        "заявки, руководитель или психолог — заявки всех пользователей."
+    ),
+)
 async def get_applications(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -115,7 +136,15 @@ async def get_applications(
 
 
 # 3. Получение конкретной заявки (с проверкой прав)
-@router.get("/{application_id}", response_model=ApplicationResponse)
+@router.get(
+    "/{application_id}",
+    response_model=ApplicationResponse,
+    summary="Получить заявку по ID",
+    description=(
+        "Возвращает данные заявки по её идентификатору. Доступна владельцу заявки, руководителю "
+        "или психологу."
+    ),
+)
 async def get_application(
     request: Request,
     application_id: UUID,
@@ -127,7 +156,15 @@ async def get_application(
 
 
 # 4. Принять в обработку
-@router.post("/{application_id}/accept", response_model=ApplicationResponse)
+@router.post(
+    "/{application_id}/accept",
+    response_model=ApplicationResponse,
+    summary="Принять заявку в обработку",
+    description=(
+        "Переводит новую заявку в обработку и назначает ответственного. Доступно руководителю или "
+        "психологу; возвращает обновлённую заявку."
+    ),
+)
 async def accept_application(
     application_id: UUID,
     data: AcceptToProcessingRequest,
@@ -152,7 +189,15 @@ async def accept_application(
 
 
 # 5. Предложить условия консультации
-@router.post("/{application_id}/offer", response_model=ApplicationResponse)
+@router.post(
+    "/{application_id}/offer",
+    response_model=ApplicationResponse,
+    summary="Предложить условия консультации",
+    description=(
+        "Сохраняет психолога, время, формат и место консультации в заявке и переводит её в "
+        "ожидание подтверждения пользователя. Доступно психологу."
+    ),
+)
 async def offer_consultation_endpoint(
     application_id: UUID,
     data: OfferConsultationRequest,
@@ -175,7 +220,15 @@ async def offer_consultation_endpoint(
 
 
 # 6. Подтверждение пользователя (создание Appointment)
-@router.post("/{application_id}/confirm", response_model=ApplicationResponse)
+@router.post(
+    "/{application_id}/confirm",
+    response_model=ApplicationResponse,
+    summary="Подтвердить заявку",
+    description=(
+        "Подтверждает условия консультации и завершает обработку собственной заявки. Использует "
+        "переданный appointment_id или уже связанную с заявкой запись на приём."
+    ),
+)
 async def confirm_application_endpoint(
     application_id: UUID,
     appointment_id: UUID | None = None, # Оставляем как опциональный Query-параметр
@@ -207,7 +260,15 @@ async def confirm_application_endpoint(
 
 
 # 7. Отклонить заявку
-@router.post("/{application_id}/reject", response_model=ApplicationResponse)
+@router.post(
+    "/{application_id}/reject",
+    response_model=ApplicationResponse,
+    summary="Отклонить заявку",
+    description=(
+        "Отклоняет новую или находящуюся в обработке заявку с указанием причины. Доступно "
+        "руководителю или психологу; возвращает обновлённую заявку."
+    ),
+)
 async def reject_application_endpoint(
     application_id: UUID,
     data: RejectRequest,
@@ -230,7 +291,15 @@ async def reject_application_endpoint(
 
 
 # 8. Отмена заявки
-@router.post("/{application_id}/cancel", response_model=ApplicationResponse)
+@router.post(
+    "/{application_id}/cancel",
+    response_model=ApplicationResponse,
+    summary="Отменить заявку",
+    description=(
+        "Отменяет заявку с указанием причины и инициатора отмены. Требуется авторизация и доступ "
+        "к заявке; возвращает обновлённую заявку."
+    ),
+)
 async def cancel_application_endpoint(
     application_id: UUID,
     data: CancelRequest,

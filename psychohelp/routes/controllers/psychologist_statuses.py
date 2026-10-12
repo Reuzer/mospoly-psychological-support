@@ -40,7 +40,16 @@ router = APIRouter(
     tags=["therapists Statuses"],
 )
 
-@router.post("/{user_id}/statuses", response_model=PsychologistStatusResponse)
+@router.post(
+    "/{user_id}/statuses",
+    response_model=PsychologistStatusResponse,
+    summary="Установить статус психолога",
+    description=(
+        "Устанавливает статус психолога на указанный период и возвращает его данные. user_id — ID "
+        "пользователя психолога; требуется право управления психологами или редактирования "
+        "собственного профиля."
+    ),
+)
 async def set_psychologist_status(
     user_id: UUID,
     status_request: PsychologistStatusCreateRequest,
@@ -86,7 +95,14 @@ async def set_psychologist_status(
             detail=f"Психолог с ID {e.psychologist_id} не найден"
         )
 
-@router.delete("/{user_id}/statuses/{status_id}")
+@router.delete(
+    "/{user_id}/statuses/{status_id}",
+    summary="Удалить статус психолога",
+    description=(
+        "Удаляет статус по status_id для психолога с указанным user_id. Требуется право "
+        "управления психологами или редактирования собственного профиля."
+    ),
+)
 async def delete_psychologist_status(
     user_id: UUID,
     status_id: UUID,
@@ -120,7 +136,15 @@ async def delete_psychologist_status(
             detail=f"Статус с ID {e.status_id} не найден"
         )
 
-@router.get("/{user_id}/statuses", response_model=list[PsychologistStatusResponse])
+@router.get(
+    "/{user_id}/statuses",
+    response_model=list[PsychologistStatusResponse],
+    summary="Получить статусы психолога",
+    description=(
+        "Возвращает все периоды статусов психолога по ID его пользователя. Требуется право "
+        "управления психологами или редактирования собственного профиля."
+    ),
+)
 async def get_psychologist_statuses(
     user_id: UUID,
     current_user: User = Depends(get_current_user)
@@ -146,7 +170,15 @@ async def get_psychologist_statuses(
             detail=f"Психолог с ID {e.psychologist_id} не найден"
         )
 
-@router.get("/{user_id}/statuses/current", response_model=CurrentStatusInfoResponse)
+@router.get(
+    "/{user_id}/statuses/current",
+    response_model=CurrentStatusInfoResponse,
+    summary="Получить текущий статус психолога",
+    description=(
+        "Возвращает текущий статус психолога по ID его пользователя и сведения о периоде статуса. "
+        "Если действующего статуса нет, возвращает available; авторизация не требуется."
+    ),
+)
 async def get_psychologist_current_status(
     user_id: UUID
 ):

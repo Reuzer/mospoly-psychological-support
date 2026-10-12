@@ -45,7 +45,16 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
 
-@router.get("/", response_model=list[AppointmentBase])
+@router.get(
+    "/",
+    response_model=list[AppointmentBase],
+    summary="Получить список записей на приём",
+    description=(
+        "Возвращает записи, в которых пользователь участвует как пациент или психолог. Без "
+        "user_id используется текущий пользователь; для просмотра записей другого пользователя "
+        "проверяется административный доступ."
+    ),
+)
 async def get_appointments(
     user_id: UUID | None = None,
     current_user: User = Depends(get_optional_user)
@@ -76,7 +85,15 @@ async def get_appointments(
     return await get_appointments_by_user_id(user_id)
 
 
-@router.post("/create", response_model=AppointmentBase)
+@router.post(
+    "/create",
+    response_model=AppointmentBase,
+    summary="Создать запись на приём",
+    description=(
+        "Создаёт запись текущего пользователя на консультацию к психологу и возвращает её данные. "
+        "Требуется право создания собственных записей; время приёма не может быть в прошлом."
+    ),
+)
 @require_permission(PermissionCode.APPOINTMENTS_CREATE_OWN)
 async def create_appointment(
     appointment: AppointmentCreateRequest,
@@ -158,7 +175,15 @@ async def create_appointment(
     #     )
 
 
-@router.get("/{id}", response_model=AppointmentBase)
+@router.get(
+    "/{id}",
+    response_model=AppointmentBase,
+    summary="Получить запись на приём по ID",
+    description=(
+        "Возвращает данные записи на приём, включая пациента и психолога. Доступна участнику "
+        "приёма с правом просмотра собственных записей."
+    ),
+)
 @require_permission(PermissionCode.APPOINTMENTS_VIEW_OWN)
 async def get_appointment(
     id: UUID,
@@ -183,6 +208,10 @@ async def get_appointment(
         404: {"description": "Запись не найдена или недоступна пользователю"},
         409: {"description": "Запись завершена или отменена"},
     },
+    description=(
+        "Изменяет экстренный контакт в записи со статусом awaiting. Доступно пациенту и "
+        "назначенному психологу; null или пустая строка очищает контакт."
+    ),
 )
 async def update_emergency_contact_endpoint(
     id: UUID,
@@ -198,7 +227,14 @@ async def update_emergency_contact_endpoint(
         raise HTTPException(status_code=HTTP_409_CONFLICT, detail=str(e))
 
 
-@router.put("/{id}/cancel")
+@router.put(
+    "/{id}/cancel",
+    summary="Отменить запись на приём",
+    description=(
+        "Отменяет запись на приём и сохраняет причину отмены. Доступно пациенту или назначенному "
+        "психологу с правом отмены собственных записей."
+    ),
+)
 @require_permission(PermissionCode.APPOINTMENTS_CANCEL_OWN)
 async def cancel_appointment(
     id: UUID,
@@ -215,7 +251,15 @@ async def cancel_appointment(
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.get("/{id}/reschedule-requests", response_model=list[AppointmentRescheduleRequestResponse])
+@router.get(
+    "/{id}/reschedule-requests",
+    response_model=list[AppointmentRescheduleRequestResponse],
+    summary="Получить историю запросов переноса",
+    description=(
+        "Возвращает запросы переноса указанной записи от новых к старым. Доступно участнику "
+        "приёма с правом просмотра собственных записей."
+    ),
+)
 @require_permission(PermissionCode.APPOINTMENTS_VIEW_OWN)
 async def get_reschedule_requests(
     id: UUID,
@@ -228,7 +272,15 @@ async def get_reschedule_requests(
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.post("/{id}/reschedule-requests", response_model=AppointmentRescheduleRequestResponse)
+@router.post(
+    "/{id}/reschedule-requests",
+    response_model=AppointmentRescheduleRequestResponse,
+    summary="Предложить перенос приёма",
+    description=(
+        "Создаёт запрос переноса с новым временем и дополнительными условиями, ожидающий "
+        "подтверждения пациента. Доступно назначенному психологу с правом переноса записей."
+    ),
+)
 @require_permission(PermissionCode.APPOINTMENTS_RESCHEDULE)
 async def request_reschedule(
     id: UUID,
@@ -271,6 +323,11 @@ async def request_reschedule(
 @router.post(
     "/reschedule-requests/{request_id}/confirm",
     response_model=AppointmentRescheduleRequestResponse,
+    summary="Подтвердить перенос приёма",
+    description=(
+        "Подтверждает ожидающий ответа запрос переноса и применяет новые условия к записи. "
+        "Доступно пациенту этой записи с правом подтверждения собственных записей."
+    ),
 )
 @require_permission(PermissionCode.APPOINTMENTS_CONFIRM_OWN)
 async def confirm_reschedule(
@@ -291,6 +348,11 @@ async def confirm_reschedule(
 @router.post(
     "/reschedule-requests/{request_id}/cancel",
     response_model=AppointmentRescheduleRequestResponse,
+    summary="Отклонить перенос и отменить приём",
+    description=(
+        "Отклоняет запрос переноса и отменяет связанную запись на приём, сохраняя причину из "
+        "rejection_comment. Доступно пациенту с правом подтверждения собственных записей."
+    ),
 )
 @require_permission(PermissionCode.APPOINTMENTS_CONFIRM_OWN)
 async def cancel_reschedule(
@@ -320,6 +382,11 @@ async def cancel_reschedule(
     "/reschedule-requests/{request_id}/reject",
     response_model=AppointmentRescheduleRequestResponse,
     deprecated=True,
+    summary="Отклонить перенос и отменить приём (устаревший метод)",
+    description=(
+        "Устаревший вариант метода отмены: отклоняет перенос и отменяет связанную запись на "
+        "приём. Используйте POST /appointments/reschedule-requests/{request_id}/cancel."
+    ),
 )
 @require_permission(PermissionCode.APPOINTMENTS_CONFIRM_OWN)
 async def reject_reschedule(
@@ -342,7 +409,15 @@ async def reject_reschedule(
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.put("/{id}/done", summary="Завершить прием и сохранить комментарии")
+@router.put(
+    "/{id}/done",
+    summary="Завершить прием и сохранить комментарии",
+    description=(
+        "Переводит запись в статус done, сохраняет комментарий пациенту и внутренний комментарий "
+        "психологам. Доступно только назначенному психологу; завершённую или отменённую запись "
+        "завершить нельзя."
+    ),
+)
 async def complete_appointment_endpoint(
         id: UUID,
         request: AppointmentDoneRequest,

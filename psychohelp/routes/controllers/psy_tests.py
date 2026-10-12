@@ -20,7 +20,15 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/psy-tests", tags=["psy-tests"])
 
 
-@router.get("/", response_model=list[PsyTestResponse])
+@router.get(
+    "/",
+    response_model=list[PsyTestResponse],
+    summary="Получить список психологических тестов",
+    description=(
+        "Возвращает список психологических тестов с пагинацией: skip задаёт число пропускаемых "
+        "записей, take — размер выборки. Авторизация не требуется."
+    ),
+)
 async def get_psy_test_list(
     skip: int = Query(0, ge=0, description="Количество записей для пропуска"),
     take: int = Query(100, gt=0, le=100, description="Количество записей для получения"),
@@ -29,7 +37,15 @@ async def get_psy_test_list(
     return psy_test_list
 
 
-@router.get("/{psy_test_id}", response_model=PsyTestResponse)
+@router.get(
+    "/{psy_test_id}",
+    response_model=PsyTestResponse,
+    summary="Получить психологический тест по ID",
+    description=(
+        "Возвращает название, описание и тип психологического теста по его идентификатору. "
+        "Авторизация не требуется; если тест не найден, возвращает 404."
+    ),
+)
 async def get_psy_test(psy_test_id: UUID) -> PsyTestResponse:
     psy_test_item = await psy_test_service.get_psy_test_by_id(psy_test_id)
     if psy_test_item is None:
@@ -37,7 +53,16 @@ async def get_psy_test(psy_test_id: UUID) -> PsyTestResponse:
     return psy_test_item
 
 
-@router.post("/", response_model=PsyTestResponse, status_code=HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=PsyTestResponse,
+    status_code=HTTP_201_CREATED,
+    summary="Создать психологический тест",
+    description=(
+        "Создаёт психологический тест с названием, описанием и типом и возвращает его данные. "
+        "Требуется авторизация и право создания тестов."
+    ),
+)
 @require_permission(PermissionCode.TESTS_CREATE)
 async def create_psy_test(
     data: PsyTestCreateRequest,
@@ -48,7 +73,15 @@ async def create_psy_test(
     return psy_test_item
 
 
-@router.put("/{psy_test_id}", response_model=PsyTestResponse)
+@router.put(
+    "/{psy_test_id}",
+    response_model=PsyTestResponse,
+    summary="Обновить психологический тест",
+    description=(
+        "Обновляет переданные поля психологического теста, кроме полей со значением null, и "
+        "возвращает его данные. Требуется авторизация и право редактирования тестов."
+    ),
+)
 @require_permission(PermissionCode.TESTS_EDIT)
 async def update_psy_test(
     psy_test_id: UUID,
@@ -64,7 +97,14 @@ async def update_psy_test(
     return psy_test_item
 
 
-@router.delete("/{psy_test_id}")
+@router.delete(
+    "/{psy_test_id}",
+    summary="Удалить психологический тест",
+    description=(
+        "Удаляет психологический тест по его идентификатору и возвращает сообщение об удалении. "
+        "Требуется авторизация и право удаления тестов."
+    ),
+)
 @require_permission(PermissionCode.TESTS_DELETE)
 async def delete_psy_test(
     psy_test_id: UUID,

@@ -32,7 +32,14 @@ def _has_role(user, role_code: RoleCode) -> bool:
     return any(role.code == role_code for role in (user.roles or []))
 
 
-@router.post("/{user_id}/assign")
+@router.post(
+    "/{user_id}/assign",
+    summary="Назначить роль пользователю",
+    description=(
+        "Назначает указанную роль пользователю по его ID. Доступно только администратору; если "
+        "роль уже назначена, сообщает об этом без повторного назначения."
+    ),
+)
 async def assign_role(request: Request, user_id: UUID, role_request: RoleAssignRequest) -> dict[str, str]:
     """Назначить роль пользователю"""
     token = request.cookies.get("access_token")
@@ -69,7 +76,14 @@ async def assign_role(request: Request, user_id: UUID, role_request: RoleAssignR
         )
 
 
-@router.post("/{user_id}/remove")
+@router.post(
+    "/{user_id}/remove",
+    summary="Снять роль с пользователя",
+    description=(
+        "Снимает указанную роль с пользователя по его ID и возвращает сообщение о результате. "
+        "Доступно только администратору."
+    ),
+)
 async def remove_role(request: Request, user_id: UUID, role_request: RoleRemoveRequest) -> dict[str, str]:
     """Убрать роль у пользователя"""
 

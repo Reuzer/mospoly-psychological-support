@@ -39,7 +39,15 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/therapists", tags=["therapists"])
 
 
-@router.get("/{psychologist_id}", response_model=PsychologistResponse)
+@router.get(
+    "/{psychologist_id}",
+    response_model=PsychologistResponse,
+    summary="Получить психолога по ID",
+    description=(
+        "Возвращает профиль психолога и связанные данные пользователя по ID профиля психолога. "
+        "Авторизация не требуется."
+    ),
+)
 async def get_psychologist(psychologist_id: UUID) -> PsychologistResponse:
     """Получить информацию о конкретном психологе по ID"""
     psychologist = await get_psychologist_by_id(psychologist_id)
@@ -51,7 +59,15 @@ async def get_psychologist(psychologist_id: UUID) -> PsychologistResponse:
     return PsychologistResponse.from_orm_psychologist(psychologist)
 
 
-@router.get("/", response_model=list[PsychologistResponse])
+@router.get(
+    "/",
+    response_model=list[PsychologistResponse],
+    summary="Получить список психологов",
+    description=(
+        "Возвращает профили психологов с пагинацией: skip задаёт число пропускаемых записей, take "
+        "— размер выборки. Авторизация не требуется."
+    ),
+)
 async def get_psychologists(
     skip: int = Query(0, ge=0, description="Количество записей для пропуска"),
     take: int = Query(10, gt=0, le=100, description="Количество записей для получения")
@@ -64,7 +80,16 @@ async def get_psychologists(
     return [PsychologistResponse.from_orm_psychologist(p) for p in psychologists]
 
 
-@router.post("/", response_model=PsychologistResponse, status_code=HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=PsychologistResponse,
+    status_code=HTTP_201_CREATED,
+    summary="Создать профиль психолога",
+    description=(
+        "Создаёт профиль психолога для указанного пользователя. Доступно пользователю с правом "
+        "управления психологами либо психологу, создающему собственный профиль."
+    ),
+)
 async def create_psychologist_endpoint(
     request: Request,
     data: PsychologistCreateRequest,
@@ -102,7 +127,14 @@ async def create_psychologist_endpoint(
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.delete("/{psychologist_id}")
+@router.delete(
+    "/{psychologist_id}",
+    summary="Удалить профиль психолога",
+    description=(
+        "Удаляет профиль психолога по его идентификатору и возвращает сообщение об удалении. "
+        "Требуется авторизация и право управления психологами."
+    ),
+)
 @require_permission(PermissionCode.PSYCHOLOGISTS_MANAGE)
 async def delete_psychologist_endpoint(request: Request, psychologist_id: UUID) -> dict[str, str]:
     deleted = await delete_psychologist(psychologist_id)
@@ -117,7 +149,11 @@ async def delete_psychologist_endpoint(request: Request, psychologist_id: UUID) 
 @router.get(
     "/{id}/schedule",
     response_model=PsychologistScheduleResponse,
-    summary="Доступные временные слоты психолога"
+    summary="Доступные временные слоты психолога",
+    description=(
+        "Возвращает варианты времени консультации на указанную дату или на ближайшие три дня, "
+        "начиная с завтра. Можно выбрать длительность 60 или 90 минут; авторизация не требуется."
+    ),
 )
 async def get_psychologist_schedule(
         id: UUID,
