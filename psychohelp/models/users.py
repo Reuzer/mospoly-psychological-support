@@ -19,6 +19,7 @@ class User(Base):
     social_media = Column(String(50), nullable=True)
     password = Column(String(64), nullable=False)
     study_group = Column(String(50), nullable=True)
+    avatar = Column(String(100), nullable=True)
 
     roles = relationship("Role", secondary="users_roles", back_populates="users")
     appointments_as_patient = relationship(

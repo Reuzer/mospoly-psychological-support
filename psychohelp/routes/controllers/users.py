@@ -1,4 +1,4 @@
-from fastapi import HTTPException, APIRouter, Depends, Request, Response
+from fastapi import HTTPException, APIRouter, Depends, Request, Response, UploadFile, File
 from jwt.exceptions import PyJWTError
 
 from starlette.status import (
@@ -25,6 +25,8 @@ from psychohelp.schemas.users import (
     PasswordResetRequest,
     UserCreateRequest,
     UserResponse,
+    SetUserAvatarResponse,
+    GetUserAvatarResponse,
 )
 from . import set_token_in_cookie, set_refresh_token_in_cookie
 
@@ -37,8 +39,13 @@ from psychohelp.services.users.password_reset import (
     request_password_reset,
     reset_password,
 )
-from psychohelp.services.users.users import update_profile, change_password
-from psychohelp.services.users.exceptions import PermissionDenied, UserNotFound
+from psychohelp.services.users.users import (
+    update_profile, 
+    change_password,
+    set_user_avatar as set_avatar,
+    get_user_avatar as get_avatar,
+)
+from psychohelp.services.users.exceptions import PermissionDenied, UserNotFound, InvalidImageError, ImageProcessingError
 from psychohelp.constants.rbac import RoleCode
 from psychohelp.dependencies.auth import get_current_user
 
@@ -220,6 +227,52 @@ async def get_my_status(
 
     return UserStatusResponse.model_validate(user_status)
 
+@router.put(
+    "/me/avatar", 
+    response_model=SetUserAvatarResponse,
+)
+async def set_user_avatar(
+    avatar: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+) -> SetUserAvatarResponse:
+    try:
+        await set_avatar(avatar, current_user)
+
+        return SetUserAvatarResponse(
+            msg="Success! Avatar changed."
+        )
+
+    except InvalidImageError as e:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+    except ImageProcessingError as e:
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get(
+        "/avatar/{user_id}/",
+        response_model=GetUserAvatarResponse
+)
+async def get_user_avatar(
+    user_id: UUID
+) -> GetUserAvatarResponse:
+    try:
+        avatar_url = await get_avatar(user_id)
+
+        return GetUserAvatarResponse(
+            id=user_id,
+            avatar_url=avatar_url
+        )
+    except UserNotFound:
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user_by_id(
