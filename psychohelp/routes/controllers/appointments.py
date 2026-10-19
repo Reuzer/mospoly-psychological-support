@@ -1,4 +1,5 @@
 from fastapi import HTTPException, APIRouter, Response, Request, Depends
+from pydantic import BaseModel
 from starlette.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -198,19 +199,23 @@ async def update_emergency_contact_endpoint(
     except exc.AppointmentNotActiveException as e:
         raise HTTPException(status_code=HTTP_409_CONFLICT, detail=str(e))
 
+class MessageResponse(BaseModel):
+    message: str
 
-@router.put("/{id}/cancel")
+
+@router.put("/{id}/cancel", response_model=MessageResponse)
 @require_permission(PermissionCode.APPOINTMENTS_CANCEL_OWN)
 async def cancel_appointment(
-    id: UUID,
-    request: AppointmentCancelRequest,
-    current_user: User = Depends(get_current_user)
-) -> Response:
+        id: UUID,
+        request: AppointmentCancelRequest,
+        current_user: User = Depends(get_current_user)
+) -> MessageResponse:
     """Отменить запись на прием (для пациента)"""
     try:
         await cancel_appointment_by_member(id, current_user.id, request.cancel_reason)
         logger.info(f"Appointment cancelled: {id} by user: {current_user.id}. Reason: {request.cancel_reason}")
-        return Response(None, status_code=HTTP_200_OK)
+        return MessageResponse(message="Запись успешно отменена")
+
     except ValueError as e:
         logger.error(f"Appointment cancellation failed: {str(e)}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
@@ -347,12 +352,12 @@ async def reject_reschedule(
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.put("/{id}/done", summary="Завершить прием и сохранить комментарии")
+@router.put("/{id}/done", response_model=MessageResponse, summary="Завершить прием и сохранить комментарии")
 async def complete_appointment_endpoint(
         id: UUID,
         request: AppointmentDoneRequest,
         current_user: User = Depends(get_current_user)
-) -> Response:
+) -> MessageResponse:
     """
      Завершает запись на прием (переводит в статус Done).
      Доступно только психологу, который вел этот прием.
@@ -366,7 +371,7 @@ async def complete_appointment_endpoint(
             request.psychologist_comment,
         )
         logger.info(f"Appointment completed: {id} by psychologist: {current_user.id}")
-        return Response(None, status_code=HTTP_200_OK)
+        return MessageResponse(message="Запись успешно завершена")
 
     except PermissionError as e:
         # Ловим попытку чужого психолога закрыть заявку
