@@ -5,9 +5,10 @@ from psychohelp.config.config import get_async_db
 from psychohelp.repositories import get_user_id_from_token, UUID
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from sqlalchemy import update 
+from psychohelp.services.users.exceptions import ImageProcessingError
 
 async def get_user_by_id(user_id: UUID) -> User | None:
     async with get_async_db() as session:
@@ -109,3 +110,34 @@ async def update_user(user_id: UUID, update_data: dict) -> User | None:
         except IntegrityError:
             await session.rollback()
             raise
+
+
+async def set_avatar(avatar_file_name, user):
+    async with get_async_db() as session:
+        try:
+            user_id = user.id
+
+            stmt = (
+                update(User)
+                .where(User.id == user_id)
+                .values(avatar = avatar_file_name)
+            )
+
+            await session.execute(stmt)
+            await session.commit()
+
+        except SQLAlchemyError as e:
+            await session.rollback()
+            raise ImageProcessingError("Could not save avatar info to database.") from e
+
+async def get_avatar(user_id):
+    async with get_async_db() as session:
+        stmt = (
+            select(User.id, User.avatar)
+            .where(User.id == user_id)
+        )
+
+        result = await session.execute(stmt)
+        user = result.one_or_none()
+
+        return user
