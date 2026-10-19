@@ -9,6 +9,7 @@ from starlette.status import (
     HTTP_403_FORBIDDEN
 )
 
+from psychohelp.schemas.errors import error_responses
 from psychohelp.config.logging import get_logger
 from psychohelp.repositories.rbac.rbac import (
     assign_role_to_user,
@@ -32,7 +33,7 @@ def _has_role(user, role_code: RoleCode) -> bool:
     return any(role.code == role_code for role in (user.roles or []))
 
 
-@router.post("/{user_id}/assign")
+@router.post("/{user_id}/assign", responses=error_responses(401, 403, 404, 500))
 async def assign_role(request: Request, user_id: UUID, role_request: RoleAssignRequest) -> dict[str, str]:
     """Назначить роль пользователю"""
     token = request.cookies.get("access_token")
@@ -69,7 +70,7 @@ async def assign_role(request: Request, user_id: UUID, role_request: RoleAssignR
         )
 
 
-@router.post("/{user_id}/remove")
+@router.post("/{user_id}/remove", responses=error_responses(401, 403, 404, 500))
 async def remove_role(request: Request, user_id: UUID, role_request: RoleRemoveRequest) -> dict[str, str]:
     """Убрать роль у пользователя"""
 

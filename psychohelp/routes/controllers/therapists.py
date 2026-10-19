@@ -9,6 +9,7 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
+from psychohelp.schemas.errors import error_responses
 from psychohelp.config.logging import get_logger
 from psychohelp.services.psychologists import (
     get_psychologist_by_id,
@@ -31,7 +32,7 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/therapists", tags=["therapists"])
 
 
-@router.get("/{psychologist_id}", response_model=PsychologistResponse)
+@router.get("/{psychologist_id}", responses=error_responses(404), response_model=PsychologistResponse)
 async def get_psychologist(psychologist_id: UUID) -> PsychologistResponse:
     """Получить информацию о конкретном психологе по ID"""
     psychologist = await get_psychologist_by_id(psychologist_id)
@@ -56,7 +57,7 @@ async def get_psychologists(
     return [PsychologistResponse.from_orm_psychologist(p) for p in psychologists]
 
 
-@router.post("/", response_model=PsychologistResponse, status_code=HTTP_201_CREATED)
+@router.post("/", responses=error_responses(400, 401, 403, 404, 500), response_model=PsychologistResponse, status_code=HTTP_201_CREATED)
 async def create_psychologist_endpoint(
     request: Request,
     data: PsychologistCreateRequest,
@@ -94,7 +95,7 @@ async def create_psychologist_endpoint(
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.delete("/{psychologist_id}")
+@router.delete("/{psychologist_id}", responses=error_responses(401, 403, 404))
 @require_permission(PermissionCode.PSYCHOLOGISTS_MANAGE)
 async def delete_psychologist_endpoint(request: Request, psychologist_id: UUID) -> dict[str, str]:
     deleted = await delete_psychologist(psychologist_id)

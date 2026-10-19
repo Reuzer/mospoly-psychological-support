@@ -12,6 +12,23 @@ from psychohelp.models.appointment_reschedule_requests import (
 )
 from psychohelp.models.appointments import Appointment, AppointmentStatus
 from psychohelp.models.psychologists import Psychologist
+from psychohelp.models.psychologist_statuses import PsychologistStatus, PsychologistStatusType
+
+
+def _as_utc(value: datetime) -> datetime:
+    return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def _validate_reschedule_times(reschedule_request: AppointmentRescheduleRequest):
+    now = datetime.now(timezone.utc)
+    scheduled_time = _as_utc(reschedule_request.requested_scheduled_time)
+    remind_time = reschedule_request.requested_remind_time
+    remind_time = _as_utc(remind_time) if remind_time is not None else None
+    if scheduled_time <= now:
+        raise ValueError("Нельзя подтвердить перенос на время, которое уже наступило")
+    if remind_time is not None and not now < remind_time < scheduled_time:
+        raise ValueError("Время напоминания должно быть в будущем и раньше времени встречи")
+    return scheduled_time, remind_time, now
 
 
 def _ensure_appointment_open(appointment: Appointment) -> None:
@@ -32,6 +49,7 @@ async def create_reschedule_request(
             select(Appointment)
             .options(selectinload(Appointment.psychologist))
             .where(Appointment.id == appointment_id)
+            .with_for_update()
         )
         result = await session.execute(query)
         appointment = result.scalar_one_or_none()
@@ -103,34 +121,76 @@ async def get_reschedule_requests_by_appointment(
         return list(result.scalars().all())
 
 
+async def _lock_reschedule_and_appointment(session, request_id: UUID):
+    """Все изменения используют порядок блокировок: прием, затем запрос переноса."""
+    appointment_id_query = (
+        select(AppointmentRescheduleRequest.appointment_id)
+        .where(AppointmentRescheduleRequest.id == request_id)
+        .scalar_subquery()
+    )
+    appointment_result = await session.execute(
+        select(Appointment)
+        .where(Appointment.id == appointment_id_query)
+        .with_for_update()
+    )
+    appointment = appointment_result.scalar_one_or_none()
+    if appointment is None:
+        raise ValueError("Запрос переноса не найден")
+
+    request_result = await session.execute(
+        select(AppointmentRescheduleRequest)
+        .where(AppointmentRescheduleRequest.id == request_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    reschedule_request = request_result.scalar_one_or_none()
+    if reschedule_request is None:
+        raise ValueError("Запрос переноса не найден")
+    return reschedule_request, appointment
+
+
 async def confirm_reschedule_request(
     request_id: UUID,
     patient_user_id: UUID,
 ) -> AppointmentRescheduleRequest:
     async with get_async_db() as session:
-        query = (
-            select(AppointmentRescheduleRequest)
-            .options(selectinload(AppointmentRescheduleRequest.appointment))
-            .where(AppointmentRescheduleRequest.id == request_id)
-            .with_for_update()
+        reschedule_request, appointment = await _lock_reschedule_and_appointment(
+            session, request_id,
         )
-        result = await session.execute(query)
-        reschedule_request = result.scalar_one_or_none()
-
-        if reschedule_request is None:
-            raise ValueError("Запрос переноса не найден")
         if reschedule_request.status != AppointmentRescheduleStatus.pending:
             raise ValueError("Запрос переноса уже обработан")
 
-        appointment = reschedule_request.appointment
         if appointment.patient_id != patient_user_id:
             raise PermissionError("Только пациент может подтвердить перенос")
 
         _ensure_appointment_open(appointment)
 
-        now = datetime.now(timezone.utc)
-        appointment.scheduled_time = reschedule_request.requested_scheduled_time
-        appointment.remind_time = reschedule_request.requested_remind_time
+        scheduled_time, remind_time, now = _validate_reschedule_times(reschedule_request)
+        psychologist_result = await session.execute(
+            select(Psychologist)
+            .where(Psychologist.id == appointment.psychologist_id)
+            .with_for_update()
+        )
+        psychologist = psychologist_result.scalar_one_or_none()
+        if psychologist is None:
+            raise ValueError("Назначенный психолог не найден")
+        unavailable_result = await session.execute(
+            select(PsychologistStatus)
+            .where(
+                PsychologistStatus.pid == psychologist.user_id,
+                PsychologistStatus.status.in_((PsychologistStatusType.sick, PsychologistStatusType.vacation)),
+                PsychologistStatus.start_date <= scheduled_time,
+                PsychologistStatus.end_date >= scheduled_time,
+            )
+            .with_for_update()
+        )
+        if unavailable_result.scalars().first() is not None:
+            raise ValueError("Назначенный психолог недоступен в указанное время переноса")
+
+        # Время могло наступить за время ожидания блокировок.
+        scheduled_time, remind_time, now = _validate_reschedule_times(reschedule_request)
+        appointment.scheduled_time = scheduled_time
+        appointment.remind_time = remind_time
         if reschedule_request.requested_venue is not None:
             appointment.venue = reschedule_request.requested_venue
         if reschedule_request.requested_comment is not None:
@@ -151,21 +211,12 @@ async def cancel_reschedule_request(
     rejection_comment: str,
 ) -> AppointmentRescheduleRequest:
     async with get_async_db() as session:
-        query = (
-            select(AppointmentRescheduleRequest)
-            .options(selectinload(AppointmentRescheduleRequest.appointment))
-            .where(AppointmentRescheduleRequest.id == request_id)
-            .with_for_update()
+        reschedule_request, appointment = await _lock_reschedule_and_appointment(
+            session, request_id,
         )
-        result = await session.execute(query)
-        reschedule_request = result.scalar_one_or_none()
-
-        if reschedule_request is None:
-            raise ValueError("Запрос переноса не найден")
         if reschedule_request.status != AppointmentRescheduleStatus.pending:
             raise ValueError("Запрос переноса уже обработан")
 
-        appointment = reschedule_request.appointment
         if appointment.patient_id != patient_user_id:
             raise PermissionError("Только пациент может отклонить перенос")
 

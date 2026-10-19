@@ -1,8 +1,6 @@
-import os
-import time
 import pytest
 import jwt
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from uuid import uuid4
 from jwt.exceptions import ExpiredSignatureError
@@ -27,15 +25,27 @@ class TestTokenExpiration:
         """Тест истечения токена с коротким временем жизни"""
         user_id = str(uuid4())
 
+        class FrozenDatetime(datetime):
+            current = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+            @classmethod
+            def now(cls, tz=None):
+                return cls.fromtimestamp(cls.current.timestamp(), tz=tz)
+
         short_lifetime_minutes = 0.033  # ~2 секунды
-        with patch.object(config, 'ACCESS_TOKEN_EXPIRE_MINUTES', short_lifetime_minutes):
+        with (
+            patch.object(config, 'ACCESS_TOKEN_EXPIRE_MINUTES', short_lifetime_minutes),
+            patch('psychohelp.repositories.datetime', FrozenDatetime),
+            patch('jwt.api_jwt.datetime', FrozenDatetime),
+        ):
             token = create_access_token(user_id)
 
             # Сразу после создания токен должен быть валиден
             decoded_user_id = get_user_id_from_token(token)
             assert str(decoded_user_id) == user_id
 
-            # После этого токен уже должен быть просрочен
+            # Продвигаем часы за время exp без реального ожидания.
+            FrozenDatetime.current += timedelta(seconds=3)
             with pytest.raises(ExpiredSignatureError):
                 get_user_id_from_token(token)
 

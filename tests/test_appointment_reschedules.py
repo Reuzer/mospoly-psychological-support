@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from unittest.mock import AsyncMock
 from pydantic import ValidationError
 
 from psychohelp.models.appointment_reschedule_requests import (
@@ -50,6 +51,9 @@ async def test_request_appointment_reschedule_normalizes_and_delegates(monkeypat
         fake_create_reschedule_request,
     )
 
+    monkeypatch.setattr(appointments_service, "get_psychologist_by_user_id", AsyncMock(return_value=SimpleNamespace(id=uuid4())))
+    monkeypatch.setattr(appointments_service, "check_psychologist_availability", AsyncMock(return_value=True))
+
     result = await appointments_service.request_appointment_reschedule(
         appointment_id=appointment_id,
         psychologist_user_id=psychologist_user_id,
@@ -94,6 +98,12 @@ class FakeScalarResult:
     def scalar_one_or_none(self):
         return self.value
 
+    def scalars(self):
+        return self
+
+    def first(self):
+        return self.value
+
 
 class FakeSession:
     def __init__(self, result):
@@ -107,7 +117,17 @@ class FakeSession:
     async def __aexit__(self, exc_type, exc, tb):
         return False
 
-    async def execute(self, _query):
+    async def execute(self, query):
+        from psychohelp.models.appointments import Appointment
+        from psychohelp.models.psychologists import Psychologist
+        from psychohelp.models.psychologist_statuses import PsychologistStatus
+        entity = query.column_descriptions[0]["entity"]
+        if entity is Appointment and hasattr(self.result, "appointment"):
+            return FakeScalarResult(self.result.appointment)
+        if entity is Psychologist:
+            return FakeScalarResult(SimpleNamespace(id=self.result.appointment.psychologist_id, user_id=uuid4()))
+        if entity is PsychologistStatus:
+            return FakeScalarResult(None)
         return FakeScalarResult(self.result)
 
     async def commit(self):
@@ -210,6 +230,7 @@ async def test_confirm_reschedule_request_applies_changes(monkeypatch):
     new_time = datetime.now(timezone.utc) + timedelta(days=2)
     appointment = SimpleNamespace(
         patient_id=patient_id,
+        psychologist_id=uuid4(),
         status=AppointmentStatus.awaiting,
         scheduled_time=datetime.now(timezone.utc) + timedelta(days=1),
         remind_time=None,
@@ -394,3 +415,44 @@ async def test_reject_reschedule_request_is_cancel_alias(monkeypatch):
         "patient_user_id": patient_id,
         "rejection_comment": "Не подходит время",
     }
+
+
+@pytest.mark.parametrize("invalid_time", ["past_meeting", "past_reminder", "late_reminder"])
+async def test_confirmation_revalidates_transfer_times_without_mutating_appointment(monkeypatch, invalid_time):
+    now = datetime.now(timezone.utc)
+    patient_id = uuid4()
+    appointment = SimpleNamespace(patient_id=patient_id, status=AppointmentStatus.awaiting,
+                                  scheduled_time=now + timedelta(days=1), remind_time=None)
+    request = SimpleNamespace(
+        id=uuid4(), appointment=appointment, status=AppointmentRescheduleStatus.pending,
+        requested_scheduled_time=now + timedelta(days=2), requested_remind_time=None,
+    )
+    if invalid_time == "past_meeting":
+        request.requested_scheduled_time = now - timedelta(seconds=1)
+    elif invalid_time == "past_reminder":
+        request.requested_remind_time = now - timedelta(seconds=1)
+    else:
+        request.requested_remind_time = request.requested_scheduled_time
+    before = vars(appointment).copy()
+    session = FakeSession(request)
+    monkeypatch.setattr(reschedule_repo, "get_async_db", lambda: FakeDb(session))
+    with pytest.raises(ValueError):
+        await reschedule_repo.confirm_reschedule_request(request.id, patient_id)
+    assert vars(appointment) == before
+    assert request.status == AppointmentRescheduleStatus.pending
+    assert not session.committed
+
+
+async def test_reschedule_without_psychologist_profile_returns_documented_404(monkeypatch):
+    from fastapi import HTTPException
+    import psychohelp.services.rbac.permissions as permissions
+    monkeypatch.setattr(permissions, "user_has_permission", AsyncMock(return_value=True))
+    monkeypatch.setattr(appointments_controller, "request_appointment_reschedule",
+                        AsyncMock(side_effect=appointment_exceptions.PsychologistNotFoundException(uuid4())))
+    from psychohelp.schemas.appointments import AppointmentRescheduleRequestCreate
+    with pytest.raises(HTTPException) as error:
+        await appointments_controller.request_reschedule(
+            uuid4(), AppointmentRescheduleRequestCreate(scheduled_time=datetime.now(timezone.utc) + timedelta(days=1)),
+            current_user=SimpleNamespace(id=uuid4()),
+        )
+    assert error.value.status_code == 404

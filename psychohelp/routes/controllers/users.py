@@ -10,6 +10,7 @@ from starlette.status import (
 )
 from pydantic import EmailStr
 
+from psychohelp.schemas.errors import error_responses
 from psychohelp.config.logging import get_logger
 from psychohelp.services.users import users
 from psychohelp.services.users import exceptions as users_exceptions
@@ -44,7 +45,7 @@ limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/user", response_model=UserResponse)
+@router.get("/user", responses=error_responses(401, 404), response_model=UserResponse)
 async def user_token(request: Request) -> UserResponse:
     token = request.cookies.get("access_token")
     if not token:
@@ -61,7 +62,7 @@ async def user_token(request: Request) -> UserResponse:
     return user
 
 
-@router.get("/user/{id}", response_model=UserResponse)
+@router.get("/user/{id}", responses=error_responses(404), response_model=UserResponse)
 async def user(id: users.UUID) -> UserResponse:
     user = await users.get_user_by_id(id)
     if user is None:
@@ -72,7 +73,7 @@ async def user(id: users.UUID) -> UserResponse:
     return user
 
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=UserResponse, status_code=HTTP_201_CREATED, responses=error_responses(422))
 async def register_users(user_data: UserCreateRequest, response: Response) -> UserResponse:
     try:
         user, token, refresh_token = await users.register_user(**user_data.model_dump())
@@ -86,7 +87,7 @@ async def register_users(user_data: UserCreateRequest, response: Response) -> Us
     return user
 
 
-@router.post("/login", response_model=UserResponse)
+@router.post("/login", responses=error_responses(403, 429), response_model=UserResponse)
 @limiter.limit("5/minute")
 async def login(request: Request, data: LoginRequest, response: Response) -> UserResponse:
     try:
@@ -105,7 +106,7 @@ async def login(request: Request, data: LoginRequest, response: Response) -> Use
     )
 
 
-@router.post("/logout")
+@router.post("/logout", responses=error_responses(401), response_class=Response)
 async def logout(request: Request, response: Response) -> Response:
     token = request.cookies.get("access_token")
     if token is None:
@@ -118,7 +119,7 @@ async def logout(request: Request, response: Response) -> Response:
     response.delete_cookie("refresh_token", secure=False, samesite="Lax")
     return response
 
-@router.post("/refresh", response_model=UserResponse)
+@router.post("/refresh", responses=error_responses(401, 404), response_model=UserResponse)
 async def refresh_token(request: Request, response: Response) -> UserResponse:
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token is None:
@@ -141,7 +142,7 @@ async def refresh_token(request: Request, response: Response) -> UserResponse:
         )
 
 
-@router.post("/password-reset/request", status_code=HTTP_200_OK)
+@router.post("/password-reset/request", responses=error_responses(429, 500), status_code=HTTP_200_OK)
 @limiter.limit("5/minute")
 async def request_password_reset_email(
     request: Request,
@@ -157,7 +158,7 @@ async def request_password_reset_email(
     return {"message": message}
 
 
-@router.post("/password-reset/confirm", status_code=HTTP_200_OK)
+@router.post("/password-reset/confirm", responses=error_responses(400, 429), status_code=HTTP_200_OK)
 @limiter.limit("10/minute")
 async def confirm_password_reset(
     request: Request,
@@ -173,7 +174,7 @@ async def confirm_password_reset(
     return {"message": "Пароль успешно изменён"}
 
 
-@router.put("/me", response_model=UserResponse)
+@router.put("/me", responses=error_responses(401, 403, 404, 500), response_model=UserResponse)
 async def update_my_profile(
     request: Request,
     data: UserUpdateRequest
@@ -236,7 +237,7 @@ async def update_my_profile(
     return UserResponse.model_validate(updated_user)
 
 
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put("/{user_id}", responses=error_responses(401, 403, 404), response_model=UserResponse)
 async def update_user_by_id(
     request: Request,
     user_id: UUID,
@@ -302,7 +303,7 @@ async def update_user_by_id(
     return UserResponse.model_validate(updated_user)
 
 
-@router.post("/me/password", status_code=HTTP_200_OK)
+@router.post("/me/password", responses=error_responses(400, 401, 404), status_code=HTTP_200_OK)
 async def change_my_password(
     request: Request,
     data: PasswordChangeRequest

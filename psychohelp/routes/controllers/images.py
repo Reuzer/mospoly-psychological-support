@@ -6,6 +6,7 @@ from pathlib import Path
 
 import os
 
+from psychohelp.schemas.errors import error_responses
 router = APIRouter(tags=["images"])
 
 IMAGE_DIR = os.getenv("IMAGE_DIR", "/srv/images")
@@ -14,7 +15,17 @@ IMAGE_DIR = os.getenv("IMAGE_DIR", "/srv/images")
 EXTENSIONS_WHITE_LIST = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico"}
 
 
-@router.get("/image/{filename}")
+@router.get(
+    "/image/{filename}",
+    response_class=FileResponse,
+    responses={
+        **error_responses(400, 403, 404),
+        200: {
+            "description": "Файл изображения",
+            "content": {"image/*": {"schema": {"type": "string", "format": "binary"}}},
+        },
+    },
+)
 async def get_dynamic_image(filename: str):
     """
     Получить изображение по имени файла.

@@ -6,14 +6,35 @@ from psychohelp.models.appointments import (
 from sqlalchemy.orm import selectinload
 
 from psychohelp.models.psychologists import Psychologist
+from psychohelp.models.psychologist_statuses import PsychologistStatus, PsychologistStatusType
+from psychohelp.models.applications import Application
+from psychohelp.models.appointment_reschedule_requests import (
+    AppointmentRescheduleRequest,
+    AppointmentRescheduleStatus,
+)
 from psychohelp.models.users import User
 from psychohelp.config.config import get_async_db
+from psychohelp.services.appointments import exceptions as exc
 
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
 from uuid import UUID
 from datetime import datetime, timezone
+
+
+def _ensure_appointment_reassignable(appointment: Appointment) -> None:
+    if appointment.status != AppointmentStatus.awaiting:
+        raise ValueError("Нельзя переназначить завершенную или отмененную запись")
+    scheduled_time = appointment.scheduled_time
+    scheduled_time = (
+        scheduled_time.astimezone(timezone.utc)
+        if scheduled_time.tzinfo
+        else scheduled_time.replace(tzinfo=timezone.utc)
+    )
+    if scheduled_time <= datetime.now(timezone.utc):
+        raise ValueError("Нельзя переназначить запись, время которой уже наступило")
 
 
 async def get_appointment_by_id(appointment_id: UUID, user_id: UUID) -> Appointment | None:
@@ -80,7 +101,7 @@ async def cancel_appointment_by_id(appointment_id: UUID, current_user_id: UUID, 
         query = select(Appointment).options(
             selectinload(Appointment.patient),
             selectinload(Appointment.psychologist).selectinload(Psychologist.user)
-        ).filter(Appointment.id == appointment_id)
+        ).filter(Appointment.id == appointment_id).with_for_update()
         
         result = await session.execute(query)
         appointment = result.scalar_one_or_none()
@@ -126,6 +147,107 @@ async def get_appointments_by_user_id(user_id: UUID) -> list[Appointment]:
         return list(result.scalars().all())
 
 
+async def reassign_appointment_to_psychologist(
+    appointment_id: UUID,
+    psychologist_user_id: UUID,
+) -> Appointment:
+    """Атомарно сменить психолога записи, связанных заявок и запросов переноса."""
+    async with get_async_db() as session:
+        async with session.begin():
+            appointment_result = await session.execute(
+                select(Appointment)
+                .options(
+                    selectinload(Appointment.patient),
+                    selectinload(Appointment.psychologist).selectinload(Psychologist.user),
+                )
+                .where(Appointment.id == appointment_id)
+                .with_for_update()
+            )
+            appointment = appointment_result.scalar_one_or_none()
+            if appointment is None:
+                raise exc.AppointmentNotFoundException(appointment_id)
+            _ensure_appointment_reassignable(appointment)
+
+            psychologist_result = await session.execute(
+                select(Psychologist)
+                .options(selectinload(Psychologist.user))
+                .where(Psychologist.user_id == psychologist_user_id)
+                .with_for_update()
+            )
+            psychologist = psychologist_result.scalar_one_or_none()
+            if psychologist is None:
+                raise PermissionError("Для переназначения необходим профиль психолога")
+            if appointment.psychologist_id == psychologist.id:
+                _ensure_appointment_reassignable(appointment)
+                return appointment
+
+            unavailable_result = await session.execute(
+                select(PsychologistStatus)
+                .where(
+                    PsychologistStatus.pid == psychologist_user_id,
+                    PsychologistStatus.status.in_(
+                        (PsychologistStatusType.sick, PsychologistStatusType.vacation)
+                    ),
+                    PsychologistStatus.start_date <= appointment.scheduled_time,
+                    PsychologistStatus.end_date >= appointment.scheduled_time,
+                )
+                .with_for_update()
+            )
+            if unavailable_result.scalars().first() is not None:
+                raise exc.PsychologistUnavailableException(
+                    psychologist.id, appointment.scheduled_time
+                )
+
+            pending_result = await session.execute(
+                select(AppointmentRescheduleRequest)
+                .where(
+                    AppointmentRescheduleRequest.appointment_id == appointment_id,
+                    AppointmentRescheduleRequest.status == AppointmentRescheduleStatus.pending,
+                )
+                .with_for_update()
+            )
+            pending_requests = list(pending_result.scalars().all())
+
+            application_links = [Application.appointment_id == appointment_id]
+            if appointment.application_id is not None:
+                application_links.append(Application.id == appointment.application_id)
+            applications_result = await session.execute(
+                select(Application)
+                .where(or_(*application_links))
+                .order_by(Application.id)
+                .with_for_update()
+            )
+            applications = list(applications_result.scalars().all())
+
+            # Ожидание блокировок могло занять время до начала встречи.
+            _ensure_appointment_reassignable(appointment)
+            now = datetime.now(timezone.utc)
+            appointment.psychologist_id = psychologist.id
+            appointment.psychologist = psychologist
+            appointment.last_change_time = now
+            for application in applications:
+                application.psychologist_id = psychologist.id
+                application.assigned_to = psychologist_user_id
+                application.updated_at = now
+                application.version += 1
+            for pending_request in pending_requests:
+                pending_request.status = AppointmentRescheduleStatus.rejected
+                pending_request.rejection_comment = "Запись переназначена другому психологу"
+                pending_request.responded_at = now
+
+            await session.flush()
+            refreshed_result = await session.execute(
+                select(Appointment)
+                .options(
+                    selectinload(Appointment.patient),
+                    selectinload(Appointment.psychologist).selectinload(Psychologist.user),
+                )
+                .where(Appointment.id == appointment_id)
+                .execution_options(populate_existing=True)
+            )
+            return refreshed_result.scalar_one()
+
+
 async def complete_appointment_by_psychologist(
         appointment_id: UUID,
         psychologist_id: UUID,
@@ -136,7 +258,7 @@ async def complete_appointment_by_psychologist(
         query = select(Appointment).options(
             selectinload(Appointment.patient),
             selectinload(Appointment.psychologist).selectinload(Psychologist.user)
-        ).filter(Appointment.id == appointment_id)
+        ).filter(Appointment.id == appointment_id).with_for_update()
         
         result = await session.execute(query)
         appointment = result.scalar_one_or_none()
