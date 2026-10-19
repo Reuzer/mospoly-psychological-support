@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.status import HTTP_201_CREATED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
+from psychohelp.schemas.errors import error_responses
 from psychohelp.config.logging import get_logger
 from psychohelp.constants.rbac import PermissionCode
 from psychohelp.dependencies.auth import get_current_user
@@ -29,7 +30,7 @@ async def get_psy_test_list(
     return psy_test_list
 
 
-@router.get("/{psy_test_id}", response_model=PsyTestResponse)
+@router.get("/{psy_test_id}", responses=error_responses(404), response_model=PsyTestResponse)
 async def get_psy_test(psy_test_id: UUID) -> PsyTestResponse:
     psy_test_item = await psy_test_service.get_psy_test_by_id(psy_test_id)
     if psy_test_item is None:
@@ -37,7 +38,7 @@ async def get_psy_test(psy_test_id: UUID) -> PsyTestResponse:
     return psy_test_item
 
 
-@router.post("/", response_model=PsyTestResponse, status_code=HTTP_201_CREATED)
+@router.post("/", responses=error_responses(401, 403), response_model=PsyTestResponse, status_code=HTTP_201_CREATED)
 @require_permission(PermissionCode.TESTS_CREATE)
 async def create_psy_test(
     data: PsyTestCreateRequest,
@@ -48,7 +49,7 @@ async def create_psy_test(
     return psy_test_item
 
 
-@router.put("/{psy_test_id}", response_model=PsyTestResponse)
+@router.put("/{psy_test_id}", responses=error_responses(401, 403, 404), response_model=PsyTestResponse)
 @require_permission(PermissionCode.TESTS_EDIT)
 async def update_psy_test(
     psy_test_id: UUID,
@@ -64,7 +65,7 @@ async def update_psy_test(
     return psy_test_item
 
 
-@router.delete("/{psy_test_id}")
+@router.delete("/{psy_test_id}", responses=error_responses(401, 403, 404))
 @require_permission(PermissionCode.TESTS_DELETE)
 async def delete_psy_test(
     psy_test_id: UUID,

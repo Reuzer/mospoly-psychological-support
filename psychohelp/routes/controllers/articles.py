@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.status import HTTP_201_CREATED, HTTP_404_NOT_FOUND
 
+from psychohelp.schemas.errors import error_responses
 from psychohelp.config.logging import get_logger
 from psychohelp.constants.rbac import PermissionCode
 from psychohelp.dependencies.auth import get_current_user
@@ -29,7 +30,7 @@ async def get_articles(
     return articles
 
 
-@router.get("/{article_id}", response_model=ArticleResponse)
+@router.get("/{article_id}", responses=error_responses(404), response_model=ArticleResponse)
 async def get_article(article_id: UUID) -> ArticleResponse:
     article = await articles_service.get_article_by_id(article_id)
     if article is None:
@@ -37,7 +38,7 @@ async def get_article(article_id: UUID) -> ArticleResponse:
     return article
 
 
-@router.post("/", response_model=ArticleResponse, status_code=HTTP_201_CREATED)
+@router.post("/", responses=error_responses(401, 403), response_model=ArticleResponse, status_code=HTTP_201_CREATED)
 @require_permission(PermissionCode.ARTICLES_CREATE)
 async def create_article(
     data: ArticleCreateRequest,
@@ -48,7 +49,7 @@ async def create_article(
     return article
 
 
-@router.put("/{article_id}", response_model=ArticleResponse)
+@router.put("/{article_id}", responses=error_responses(401, 403, 404), response_model=ArticleResponse)
 @require_permission(PermissionCode.ARTICLES_EDIT)
 async def update_article(
     article_id: UUID,
@@ -64,7 +65,7 @@ async def update_article(
     return article
 
 
-@router.delete("/{article_id}")
+@router.delete("/{article_id}", responses=error_responses(401, 403, 404))
 @require_permission(PermissionCode.ARTICLES_DELETE)
 async def delete_article(
     article_id: UUID,
