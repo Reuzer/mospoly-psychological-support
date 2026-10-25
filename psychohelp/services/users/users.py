@@ -16,7 +16,7 @@ from psychohelp.repositories import verify_password, hash_password
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from starlette.status import HTTP_409_CONFLICT
-from pathlib import Path
+from psychohelp.config.config import config
 from PIL import Image, UnidentifiedImageError
 import io
 
@@ -133,12 +133,10 @@ async def change_password(
 
 async def set_user_avatar(avatar, user):
     ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
-    BASE_DIR = Path("/app")
-    UPLOAD_DIR = BASE_DIR / "srv" / "images" / "avatars"
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    config.AVATAR_DIR.mkdir(parents=True, exist_ok=True)
 
     file_name = f"{user.id}.webp"
-    file_path = UPLOAD_DIR / file_name
+    file_path = config.AVATAR_DIR / file_name
 
     try:
         contents = await avatar.read()

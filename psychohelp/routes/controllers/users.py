@@ -293,10 +293,14 @@ async def set_user_avatar(
         response_model=GetUserAvatarResponse
 )
 async def get_user_avatar(
-    user_id: UUID
+    user_id: UUID,
+    request: Request,
 ) -> GetUserAvatarResponse:
     try:
         avatar_url = await get_avatar(user_id)
+        if avatar_url is not None:
+            root_path = request.scope.get("root_path", "").rstrip("/")
+            avatar_url = f"{root_path}{avatar_url}"
 
         return GetUserAvatarResponse(
             id=user_id,
