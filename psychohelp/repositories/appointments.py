@@ -1,3 +1,4 @@
+#ЫЫЫЫ
 from psychohelp.models.appointments import (
     Appointment,
     AppointmentType,
