@@ -1,0 +1,29 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:   # ручной запуск из вкладки Actions
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+
+    # -ll: падать только на находках уровня medium и выше
+    - name: Bandit (SAST)
+      run: uvx bandit -r psychohelp -ll
+
+    - name: Dependency audit (pip-audit)
+      run: |
+        uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt
+        uvx pip-audit --disable-pip --no-deps -r requirements.txt
