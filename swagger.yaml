@@ -269,6 +269,19 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                }
+              }
+            }
           }
         }
       }
@@ -938,19 +951,6 @@
               }
             }
           },
-          "409": {
-            "description": "Конфликт состояния или версии объекта",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "detail": "Конфликт состояния или версии объекта"
-                }
-              }
-            }
-          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1258,7 +1258,7 @@
           "appointments"
         ],
         "summary": "Переназначить запись на текущего психолога",
-        "description": "Доступно любому психологу с профилем для записи в статусе awaiting со временем встречи строго в будущем. Если время уже наступило, возвращается 409. Если новый психолог в отпуске, на больничном или уже имеет ожидающую встречу на это время, возвращается 409 без изменения записи. Ожидающие запросы переноса отклоняются. Повторный запрос назначенного психолога возвращает текущую запись.",
+        "description": "Доступно любому психологу с профилем для записи в статусе awaiting со временем встречи строго в будущем. Если время уже наступило, возвращается 409. Если новый психолог в отпуске, на больничном или уже имеет ожидающую встречу на это время, возвращается 409 без изменения записи. Связанная заявка обновляется, ожидающие запросы переноса отклоняются. Повторный запрос назначенного психолога возвращает текущую запись.",
         "operationId": "reassign_appointment_appointments__id__reassign_post",
         "security": [
           {
@@ -1539,19 +1539,6 @@
               }
             }
           },
-          "409": {
-            "description": "Конфликт состояния или версии объекта",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Конфликт состояния или версии объекта"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1632,19 +1619,6 @@
               "application/json": {
                 "example": {
                   "detail": "Недостаточно прав для выполнения операции"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Конфликт состояния или версии объекта",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Конфликт состояния или версии объекта"
                 },
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
@@ -2706,6 +2680,1065 @@
               "application/json": {
                 "example": {
                   "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/university-statuses": {
+      "get": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Получить статусы в университете",
+        "operationId": "get_university_statuses_applications_university_statuses_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response Get University Statuses Applications University Statuses Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/": {
+      "post": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Create Application Endpoint",
+        "operationId": "create_application_endpoint_applications__post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Get Applications",
+        "operationId": "get_applications_applications__get",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Skip"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ApplicationStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "assigned_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Assigned To"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "created_at",
+                "updated_at",
+                "scheduled_at",
+                "status"
+              ],
+              "type": "string",
+              "default": "created_at",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "sort_desc",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Sort Desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApplicationResponse"
+                  },
+                  "title": "Response Get Applications Applications  Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{application_id}": {
+      "get": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Get Application",
+        "operationId": "get_application_applications__application_id__get",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Application Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{application_id}/accept": {
+      "post": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Accept Application",
+        "operationId": "accept_application_applications__application_id__accept_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Application Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptToProcessingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые условия операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недопустимые условия операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{application_id}/offer": {
+      "post": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Offer Consultation Endpoint",
+        "operationId": "offer_consultation_endpoint_applications__application_id__offer_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Application Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferConsultationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые условия операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недопустимые условия операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{application_id}/reassign": {
+      "post": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Переназначить заявку на себя и повторно запросить подтверждение",
+        "description": "Любой психолог с профилем может изменить условия заявки в статусе awaiting_user_confirmation и назначить её на себя. Пустое тело {} сохраняет условия встречи. Версия предложения увеличивается; пользователь должен подтвердить новую версию через /confirm.",
+        "operationId": "reassign_application_endpoint_applications__application_id__reassign_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Application Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationReassignRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые условия операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недопустимые условия операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{application_id}/confirm": {
+      "post": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Подтвердить актуальную версию предложения",
+        "description": "Только владелец заявки. При совпадении expected_version и version сервер атомарно создаёт запись из сохранённых условий. Устаревшая версия или повторное подтверждение возвращают 409.",
+        "operationId": "confirm_application_endpoint_applications__application_id__confirm_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Application Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые условия операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недопустимые условия операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{application_id}/reject": {
+      "post": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Reject Application Endpoint",
+        "operationId": "reject_application_endpoint_applications__application_id__reject_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Application Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые условия операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недопустимые условия операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{application_id}/cancel": {
+      "post": {
+        "tags": [
+          "applications"
+        ],
+        "summary": "Cancel Application Endpoint",
+        "operationId": "cancel_application_endpoint_applications__application_id__cancel_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Application Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые условия операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недопустимые условия операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
                 },
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
@@ -4205,6 +5238,418 @@
   },
   "components": {
     "schemas": {
+      "AcceptToProcessingRequest": {
+        "properties": {
+          "assigned_to": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assigned To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "assigned_to"
+        ],
+        "title": "AcceptToProcessingRequest"
+      },
+      "ApplicationConfirmRequest": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "description": "Значение version из последнего полученного предложения. Если условия изменились, сервер возвращает 409 без создания записи."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version"
+        ],
+        "title": "ApplicationConfirmRequest",
+        "description": "Подтверждение пользователем конкретной версии предложения."
+      },
+      "ApplicationCreateRequest": {
+        "properties": {
+          "psychologist_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Psychologist Id"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scheduled At"
+          },
+          "problem_description": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Problem Description"
+          },
+          "preferred_campus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Campus"
+          },
+          "university_status": {
+            "$ref": "#/components/schemas/UniversityStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "psychologist_id",
+          "scheduled_at",
+          "problem_description",
+          "university_status"
+        ],
+        "title": "ApplicationCreateRequest"
+      },
+      "ApplicationReassignRequest": {
+        "properties": {
+          "meeting_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeetingType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "meeting_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ApplicationReassignRequest",
+        "description": "Изменяемые условия повторного предложения; психолог определяется по сессии."
+      },
+      "ApplicationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserFullResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assigned_to_user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserFullResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "psychologist": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/psychohelp__schemas__applications__PsychologistFullResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appointment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppointmentFullResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "problem_description": {
+            "type": "string",
+            "title": "Problem Description"
+          },
+          "preferred_campus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Campus"
+          },
+          "university_status": {
+            "$ref": "#/components/schemas/UniversityStatus"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ApplicationStatus"
+          },
+          "meeting_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeetingType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "meeting_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "processing_started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processing Started At"
+          },
+          "confirmation_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Requested At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "rejected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejected At"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "expired_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired At"
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
+          "cancel_initiator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CancelInitiator"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "internal_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Comment"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "problem_description",
+          "preferred_campus",
+          "university_status",
+          "status",
+          "meeting_type",
+          "scheduled_at",
+          "location_address",
+          "meeting_url",
+          "created_at",
+          "updated_at",
+          "processing_started_at",
+          "confirmation_requested_at",
+          "completed_at",
+          "rejected_at",
+          "cancelled_at",
+          "expired_at",
+          "reject_reason",
+          "cancel_reason",
+          "cancel_initiator",
+          "internal_comment",
+          "version"
+        ],
+        "title": "ApplicationResponse"
+      },
+      "ApplicationStatus": {
+        "type": "string",
+        "enum": [
+          "new",
+          "in_progress",
+          "awaiting_user_confirmation",
+          "completed",
+          "rejected",
+          "cancelled",
+          "expired"
+        ],
+        "title": "ApplicationStatus"
+      },
       "AppointmentBase": {
         "properties": {
           "id": {
@@ -4216,19 +5661,22 @@
             "$ref": "#/components/schemas/UserFullResponse"
           },
           "psychologist": {
-            "$ref": "#/components/schemas/PsychologistFullResponse"
+            "$ref": "#/components/schemas/psychohelp__schemas__appointments__PsychologistFullResponse"
+          },
+          "application_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
           },
           "type": {
             "$ref": "#/components/schemas/AppointmentType"
-          },
-          "duration": {
-            "type": "integer",
-            "enum": [
-              60,
-              90
-            ],
-            "title": "Duration",
-            "default": 60
           },
           "reason": {
             "anyOf": [
@@ -4292,22 +5740,6 @@
             ],
             "title": "Cancel Reason"
           },
-          "cancelled_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cancelled By"
-          },
-          "emergency_cancellation": {
-            "type": "boolean",
-            "title": "Emergency Cancellation",
-            "default": false
-          },
           "patient_comment": {
             "anyOf": [
               {
@@ -4359,14 +5791,7 @@
         "properties": {
           "cancel_reason": {
             "type": "string",
-            "maxLength": 512,
-            "minLength": 1,
             "title": "Cancel Reason"
-          },
-          "is_emergency": {
-            "type": "boolean",
-            "title": "Is Emergency",
-            "default": false
           }
         },
         "type": "object",
@@ -4377,6 +5802,25 @@
       },
       "AppointmentCreateRequest": {
         "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id",
+            "description": "Для самостоятельной записи передавать не нужно. Записи по заявке создаются только через POST /applications/{application_id}/confirm; непустое значение возвращает 400.",
+            "deprecated": true
+          },
+          "patient_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Patient Id"
+          },
           "psychologist_id": {
             "type": "string",
             "format": "uuid",
@@ -4384,15 +5828,6 @@
           },
           "type": {
             "$ref": "#/components/schemas/AppointmentType"
-          },
-          "duration": {
-            "type": "integer",
-            "enum": [
-              60,
-              90
-            ],
-            "title": "Duration",
-            "default": 60
           },
           "scheduled_time": {
             "type": "string",
@@ -4402,8 +5837,7 @@
           "reason": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "type": "string"
               },
               {
                 "type": "null"
@@ -4448,6 +5882,7 @@
         },
         "type": "object",
         "required": [
+          "patient_id",
           "psychologist_id",
           "type",
           "scheduled_time"
@@ -4506,6 +5941,136 @@
           "emergency_contact"
         ],
         "title": "AppointmentEmergencyContactRequest"
+      },
+      "AppointmentFullResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "patient": {
+            "$ref": "#/components/schemas/UserFullResponse"
+          },
+          "application_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "psychologist_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Psychologist Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
+          "patient_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Comment"
+          },
+          "conclusion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conclusion"
+          },
+          "scheduled_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scheduled Time"
+          },
+          "remind_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remind Time"
+          },
+          "last_change_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Change Time"
+          },
+          "venue": {
+            "type": "string",
+            "title": "Venue"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "patient",
+          "psychologist_id",
+          "type",
+          "status",
+          "scheduled_time",
+          "last_change_time",
+          "venue"
+        ],
+        "title": "AppointmentFullResponse"
       },
       "AppointmentRescheduleCancelRequest": {
         "properties": {
@@ -4980,6 +6545,35 @@
         "type": "object",
         "title": "ArticleUpdateRequest"
       },
+      "CancelInitiator": {
+        "type": "string",
+        "enum": [
+          "user",
+          "psychologist",
+          "manager",
+          "system"
+        ],
+        "title": "CancelInitiator"
+      },
+      "CancelRequest": {
+        "properties": {
+          "cancel_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Cancel Reason"
+          },
+          "cancel_initiator": {
+            "$ref": "#/components/schemas/CancelInitiator"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cancel_reason",
+          "cancel_initiator"
+        ],
+        "title": "CancelRequest"
+      },
       "CurrentStatusInfoResponse": {
         "properties": {
           "status": {
@@ -5049,6 +6643,14 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "MeetingType": {
+        "type": "string",
+        "enum": [
+          "offline",
+          "online"
+        ],
+        "title": "MeetingType"
       },
       "MessageResponse": {
         "properties": {
@@ -5346,6 +6948,52 @@
         "type": "object",
         "title": "NewsUpdateRequest"
       },
+      "OfferConsultationRequest": {
+        "properties": {
+          "psychologist_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Psychologist Id"
+          },
+          "meeting_type": {
+            "$ref": "#/components/schemas/MeetingType"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scheduled At"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "meeting_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "psychologist_id",
+          "meeting_type",
+          "scheduled_at"
+        ],
+        "title": "OfferConsultationRequest"
+      },
       "PasswordChangeRequest": {
         "properties": {
           "old_password": {
@@ -5563,76 +7211,6 @@
           "short_description"
         ],
         "title": "PsychologistCreateRequest"
-      },
-      "PsychologistFullResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "user_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "User Id"
-          },
-          "experience": {
-            "type": "string",
-            "title": "Experience"
-          },
-          "qualification": {
-            "type": "string",
-            "title": "Qualification"
-          },
-          "consult_areas": {
-            "type": "string",
-            "title": "Consult Areas"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description"
-          },
-          "office": {
-            "type": "string",
-            "title": "Office"
-          },
-          "education": {
-            "type": "string",
-            "title": "Education"
-          },
-          "short_description": {
-            "type": "string",
-            "title": "Short Description"
-          },
-          "photo": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Photo"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserFullResponse"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "user_id",
-          "experience",
-          "qualification",
-          "consult_areas",
-          "description",
-          "office",
-          "education",
-          "short_description",
-          "user"
-        ],
-        "title": "PsychologistFullResponse"
       },
       "PsychologistPublicCard": {
         "properties": {
@@ -5878,6 +7456,21 @@
         ],
         "title": "RegistrationValidationErrorResponse"
       },
+      "RejectRequest": {
+        "properties": {
+          "reject_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reject Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reject_reason"
+        ],
+        "title": "RejectRequest"
+      },
       "ReviewsBase": {
         "properties": {
           "appointment_id": {
@@ -6013,6 +7606,16 @@
           "Медицинский"
         ],
         "title": "TestType"
+      },
+      "UniversityStatus": {
+        "type": "string",
+        "enum": [
+          "студент",
+          "аспирант",
+          "преподаватель",
+          "сотрудник"
+        ],
+        "title": "UniversityStatus"
       },
       "UserCreateRequest": {
         "properties": {
@@ -6421,6 +8024,152 @@
           "type"
         ],
         "title": "ValidationIssue"
+      },
+      "psychohelp__schemas__applications__PsychologistFullResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "experience": {
+            "type": "string",
+            "title": "Experience"
+          },
+          "qualification": {
+            "type": "string",
+            "title": "Qualification"
+          },
+          "consult_areas": {
+            "type": "string",
+            "title": "Consult Areas"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "office": {
+            "type": "string",
+            "title": "Office"
+          },
+          "education": {
+            "type": "string",
+            "title": "Education"
+          },
+          "short_description": {
+            "type": "string",
+            "title": "Short Description"
+          },
+          "photo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserFullResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "experience",
+          "qualification",
+          "consult_areas",
+          "description",
+          "office",
+          "education",
+          "short_description"
+        ],
+        "title": "PsychologistFullResponse"
+      },
+      "psychohelp__schemas__appointments__PsychologistFullResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "experience": {
+            "type": "string",
+            "title": "Experience"
+          },
+          "qualification": {
+            "type": "string",
+            "title": "Qualification"
+          },
+          "consult_areas": {
+            "type": "string",
+            "title": "Consult Areas"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "office": {
+            "type": "string",
+            "title": "Office"
+          },
+          "education": {
+            "type": "string",
+            "title": "Education"
+          },
+          "short_description": {
+            "type": "string",
+            "title": "Short Description"
+          },
+          "photo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserFullResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "experience",
+          "qualification",
+          "consult_areas",
+          "description",
+          "office",
+          "education",
+          "short_description",
+          "user"
+        ],
+        "title": "PsychologistFullResponse"
       }
     },
     "securitySchemes": {
