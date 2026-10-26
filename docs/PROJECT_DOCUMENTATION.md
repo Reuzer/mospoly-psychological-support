@@ -126,8 +126,8 @@
 ## Технологический стек
 
 ### Backend
-- **Python 3.8+** - Язык программирования
-- **FastAPI 0.115.0** - Современный async веб-фреймворк
+- **Python 3.10+** - Язык программирования (в Docker используется Python 3.13)
+- **FastAPI 0.135.4** - Современный async веб-фреймворк
 - **SQLAlchemy 2.0.35** - ORM для работы с БД
 - **Pydantic 2+** - Валидация данных
 - **Uvicorn** - ASGI сервер
@@ -2627,21 +2627,22 @@ docker-compose logs -f app
 
 ```toml
 dependencies = [
-    "fastapi==0.115.0",
+    "fastapi==0.135.4",
+    "starlette==1.3.1",
     "uvicorn[standard]>=0.24.0",
     "sqlalchemy==2.0.35",
     "asyncpg==0.30.0",
-    "passlib[bcrypt]",
-    "pyjwt==2.9.0",
+    "pyjwt==2.15.1",
     "pydantic[email]>=2.0.0",
     "pydantic-extra-types",
     "phonenumbers",
     "httpx",
-    "anyio",
+    "anyio>=4.14.2,<5",
     "greenlet",
-    "bcrypt==4.3.0",
+    "bcrypt>=4.0.1",
     "alembic>=1.14.1",
     "psycopg2-binary>=2.9.10",
+    "slowapi>=0.1.9",
 ]
 
 dev = [
