@@ -44,6 +44,29 @@ async def test_request_appointment_reschedule_normalizes_and_delegates(monkeypat
         captured.update(kwargs)
         return SimpleNamespace(id=uuid4())
 
+    async def fake_get_psychologist_by_user_id(user_id):
+        assert user_id == psychologist_user_id
+        return SimpleNamespace(id=uuid4())
+
+    async def fake_available(*_args):
+        return True
+
+    monkeypatch.setattr(
+        appointments_service,
+        "get_psychologist_by_user_id",
+        fake_get_psychologist_by_user_id,
+    )
+    monkeypatch.setattr(
+        appointments_service,
+        "check_psychologist_availability",
+        fake_available,
+    )
+    monkeypatch.setattr(
+        appointments_service,
+        "is_appointment_slot_available",
+        fake_available,
+    )
+
     monkeypatch.setattr(
         appointments_service.reschedule_repo,
         "create_reschedule_request",
@@ -215,7 +238,7 @@ async def test_confirm_reschedule_request_applies_changes(monkeypatch):
         remind_time=None,
         venue="Старый кабинет",
         comment="Старый комментарий",
-        last_change_time=datetime.now(timezone.utc),
+        last_change_time=datetime.now(timezone.utc) - timedelta(seconds=1),
     )
     reschedule_request = SimpleNamespace(
         id=uuid4(),
@@ -281,7 +304,7 @@ async def test_cancel_reschedule_request_cancels_appointment(monkeypatch):
         venue="Старый кабинет",
         comment="Старый комментарий",
         cancel_reason=None,
-        last_change_time=datetime.now(timezone.utc),
+        last_change_time=datetime.now(timezone.utc) - timedelta(seconds=1),
     )
     reschedule_request = SimpleNamespace(
         id=uuid4(),

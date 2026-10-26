@@ -38,6 +38,24 @@ async def get_appointment_by_id(appointment_id: UUID, user_id: UUID) -> Appointm
         return result.scalar_one_or_none()
 
 
+async def is_appointment_slot_available(
+    psychologist_id: UUID,
+    scheduled_time: datetime,
+    exclude_appointment_id: UUID | None = None,
+) -> bool:
+    async with get_async_db() as session:
+        query = select(Appointment.id).where(
+            Appointment.psychologist_id == psychologist_id,
+            Appointment.scheduled_time == scheduled_time,
+            Appointment.status != AppointmentStatus.cancelled,
+        )
+        if exclude_appointment_id is not None:
+            query = query.where(Appointment.id != exclude_appointment_id)
+
+        result = await session.execute(query)
+        return result.scalar_one_or_none() is None
+
+
 async def update_emergency_contact(
     appointment_id: UUID, user_id: UUID, emergency_contact: str | None,
 ) -> Appointment:
@@ -70,22 +88,21 @@ async def create_appointment(
     patient_id: UUID,
     psychologist_id: UUID,
     type: AppointmentType,
+    duration: int,
     reason: str | None,
     status: AppointmentStatus,
     scheduled_time: datetime,
     remind_time: datetime | None,
     last_change_time: datetime,
     venue: str,
-    application_id: UUID | None = None,
     comment: str | None = None,
 ) -> Appointment:
-    # Убрали передачу имен из параметров
     async with get_async_db() as session:
         new_appointment = Appointment(
             patient_id=patient_id,
             psychologist_id=psychologist_id,
-            application_id=application_id,
             type=type,
+            duration=duration,
             reason=reason,
             status=status,
             scheduled_time=scheduled_time,
@@ -106,7 +123,12 @@ async def create_appointment(
         return new_appointment
 
 
-async def cancel_appointment_by_id(appointment_id: UUID, current_user_id: UUID, cancel_reason: str) -> Appointment:
+async def cancel_appointment_by_id(
+    appointment_id: UUID,
+    current_user_id: UUID,
+    cancel_reason: str,
+    is_emergency: bool = False,
+) -> Appointment:
     async with get_async_db() as session:
         # Благодаря selectinload(Appointment.psychologist) у нас есть доступ к объекту психолога
         query = select(Appointment).options(
@@ -120,14 +142,22 @@ async def cancel_appointment_by_id(appointment_id: UUID, current_user_id: UUID, 
         if appointment is None:
             raise ValueError("Встреча не найдена")
 
-        if appointment.patient_id != current_user_id and appointment.psychologist.user_id != current_user_id:
-            raise ValueError("Только пациент или психолог может отменить свою запись")
+        is_patient = appointment.patient_id == current_user_id
+        is_psychologist = appointment.psychologist.user_id == current_user_id
 
-        if appointment.status == AppointmentStatus.cancelled:
-            raise ValueError("Встреча уже отменена")
+        if not is_patient and not is_psychologist:
+            raise PermissionError("Только пациент или назначенный психолог может отменить запись")
+
+        if is_psychologist and not is_emergency:
+            raise PermissionError("Психолог может отменить запись только при ЧС")
+
+        if appointment.status in (AppointmentStatus.done, AppointmentStatus.cancelled):
+            raise ValueError("Завершенную или отмененную запись нельзя отменить повторно")
 
         appointment.status = AppointmentStatus.cancelled
         appointment.cancel_reason = cancel_reason
+        appointment.cancelled_by = "patient" if is_patient else "psychologist"
+        appointment.emergency_cancellation = is_psychologist
         appointment.last_change_time = datetime.now(timezone.utc)
 
         try:

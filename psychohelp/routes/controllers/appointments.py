@@ -86,13 +86,10 @@ async def create_appointment(
 ) -> AppointmentBase:
     """Создать новую запись на прием к психологу"""
     try:
-        if appointment.patient_id != current_user.id:
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Вы можете создавать записи только для себя"
-            )
-
-        created_appointment = await srv_create_appointment(**appointment.model_dump())
+        created_appointment = await srv_create_appointment(
+            patient_id=current_user.id,
+            **appointment.model_dump(),
+        )
         logger.info(f"Appointment created: {created_appointment.id} by user: {current_user.id}")
         return created_appointment
     
@@ -117,25 +114,11 @@ async def create_appointment(
             detail="Пациент не найден"
         )
 
-    except exc.ApplicationNotFoundException as e:
-        logger.error(f"Application not found: {e.application_id}")
-        raise HTTPException(
-            status_code=HTTP_404_NOT_FOUND,
-            detail="Заявка не найдена"
-        )
-
     except exc.PsychologistNotFoundException as e:
         logger.error(f"Psychologist not found: {e.psychologist_id}")
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
             detail="Психолог не найден"
-        )
-    
-    except exc.PsychologistNotFoundException as e:
-        logger.error(f"User does not have psychologist role: {e.user_id}")
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Указанный пользователь не является психологом"
         )
     
     except exc.VenueRequiredException:
@@ -150,6 +133,12 @@ async def create_appointment(
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail=f"Психолог в отпуске или на больничном указанное время: {e.scheduled_time}"
+        )
+
+    except exc.AppointmentSlotOccupiedException:
+        raise HTTPException(
+            status_code=HTTP_409_CONFLICT,
+            detail="Выбранное время уже занято",
         )
     
     # except Exception as e:
@@ -212,10 +201,17 @@ async def cancel_appointment(
 ) -> MessageResponse:
     """Отменить запись на прием (для пациента)"""
     try:
-        await cancel_appointment_by_member(id, current_user.id, request.cancel_reason)
+        await cancel_appointment_by_member(
+            id,
+            current_user.id,
+            request.cancel_reason,
+            request.is_emergency,
+        )
         logger.info(f"Appointment cancelled: {id} by user: {current_user.id}. Reason: {request.cancel_reason}")
         return MessageResponse(message="Запись успешно отменена")
 
+    except PermissionError as e:
+        raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail=str(e))
     except ValueError as e:
         logger.error(f"Appointment cancellation failed: {str(e)}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
@@ -267,6 +263,11 @@ async def request_reschedule(
             status_code=HTTP_400_BAD_REQUEST,
             detail=f"Некорректное время напоминания: {e.reason}",
         )
+    except exc.PsychologistNotFoundException:
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND,
+            detail="Психолог не найден",
+        )
     except PermissionError as e:
         raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail=str(e))
     except ValueError as e:
@@ -275,6 +276,11 @@ async def request_reschedule(
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail=f"Вы находитесь в отпуске или на больничном в указанное время переноса",
+        )
+    except exc.AppointmentSlotOccupiedException:
+        raise HTTPException(
+            status_code=HTTP_409_CONFLICT,
+            detail="Выбранное время уже занято",
         )
 
 
@@ -294,6 +300,11 @@ async def confirm_reschedule(
         return reschedule_request
     except PermissionError as e:
         raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail=str(e))
+    except exc.AppointmentSlotOccupiedException:
+        raise HTTPException(
+            status_code=HTTP_409_CONFLICT,
+            detail="Выбранное время уже занято",
+        )
     except ValueError as e:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -374,7 +385,7 @@ async def complete_appointment_endpoint(
         return MessageResponse(message="Запись успешно завершена")
 
     except PermissionError as e:
-        # Ловим попытку чужого психолога закрыть заявку
+        # Ловим попытку чужого психолога закрыть запись
         logger.warning(f"Security warning: User {current_user.id} tried to complete appointment {id}")
         raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail=str(e))
 

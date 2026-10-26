@@ -158,13 +158,12 @@ components:
           $ref: '#/components/schemas/UserBase'
         psychologist:
           $ref: '#/components/schemas/AppointmentPsychologistResponse'
-        application_id:
-          type: string
-          format: uuid
-          nullable: true
         type:
           type: string
           enum: [Online, Offline]
+        duration:
+          type: integer
+          enum: [60, 90]
         reason:
           type: string
           nullable: true
@@ -190,6 +189,12 @@ components:
         cancel_reason:
           type: string
           nullable: true
+        cancelled_by:
+          type: string
+          enum: [patient, psychologist]
+          nullable: true
+        emergency_cancellation:
+          type: boolean
         patient_comment:
           type: string
           nullable: true
@@ -211,21 +216,26 @@ components:
     AppointmentCreateRequest:
       type: object
       required:
-        - patient_id
-        - therapist_id
+        - psychologist_id
         - type
+        - scheduled_time
       properties:
-        patient_id:
-          type: string
-          format: uuid
-        therapist_id:
+        psychologist_id:
           type: string
           format: uuid
         type:
           type: string
           enum: [Online, Offline]
+        duration:
+          type: integer
+          enum: [60, 90]
+          default: 60
+        scheduled_time:
+          type: string
+          format: date-time
         reason:
           type: string
+          maxLength: 2000
           nullable: true
         remind_time:
           type: string
@@ -234,13 +244,9 @@ components:
         venue:
           type: string
           nullable: true
-
-    AppointmentCreateResponse:
-      type: object
-      properties:
-        appointment_id:
+        comment:
           type: string
-          format: uuid
+          nullable: true
 
     AppointmentRescheduleRequestCreate:
       type: object
@@ -422,7 +428,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
   /users/login:
     post:
       tags:
@@ -527,9 +532,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AppointmentCreateResponse'
+                $ref: '#/components/schemas/AppointmentBase'
         '400':
           description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Выбранное время уже занято
           content:
             application/json:
               schema:
@@ -599,6 +610,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Выбранное время уже занято
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /appointments/reschedule-requests/{request_id}/confirm:
     post:
@@ -627,6 +644,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: Решение принимает не студент этой записи
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Выбранное время уже занято
           content:
             application/json:
               schema:
@@ -787,20 +810,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /appointments/{appointment_id}/cancel:
+  /appointments/{id}/cancel:
     put:
       tags:
         - appointments
       summary: Отмена записи
       description: Отменяет существующую запись к психологу
       parameters:
-        - name: appointment_id
+        - name: id
           in: path
           required: true
           description: ID записи для отмены
           schema:
             type: string
             format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cancel_reason]
+              properties:
+                cancel_reason:
+                  type: string
+                  maxLength: 512
+                is_emergency:
+                  type: boolean
+                  default: false
       responses:
         '200':
           description: Запись успешно отменена
@@ -812,8 +849,8 @@ paths:
                   message:
                     type: string
                     example: "Встреча успешно отменена"
-        '404':
-          description: Запись не найдена
+        '403':
+          description: Психолог может отменить запись только при ЧС
           content:
             application/json:
               schema:
@@ -821,7 +858,13 @@ paths:
                 properties:
                   detail:
                     type: string
-                    example: "Встреча не найдена"
+                    example: "Психолог может отменить запись только при ЧС"
+        '400':
+          description: Запись не найдена, уже отменена или завершена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: Внутренняя ошибка сервера
           content:

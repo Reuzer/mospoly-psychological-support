@@ -154,7 +154,7 @@ async def get_psychologist_schedule(
         # Достаем уже занятые записи этого психолога (чтобы не предлагать занятое время)
         stmt = select(Appointment).where(
             Appointment.psychologist_id == id,
-            Appointment.status != AppointmentStatus.Cancelled
+            Appointment.status != AppointmentStatus.cancelled
         )
         result = await session.execute(stmt)
         booked_appointments = result.scalars().all()

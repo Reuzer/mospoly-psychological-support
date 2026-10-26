@@ -4,10 +4,9 @@ from psychohelp.repositories.appointments import (
     UUID,
 )
 from psychohelp.models.appointment_reschedule_requests import AppointmentRescheduleStatus
-from pydantic import BaseModel, EmailStr, Field, model_validator
-from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 
 # --- Полные схемы для вложенных объектов ---
@@ -54,8 +53,8 @@ class AppointmentBase(BaseModel):
     patient: UserFullResponse
     psychologist: PsychologistFullResponse
     
-    application_id: Optional[UUID] = None
     type: AppointmentType
+    duration: Literal[60, 90] = 60
     reason: Optional[str] = None
     status: AppointmentStatus
     scheduled_time: datetime
@@ -64,6 +63,8 @@ class AppointmentBase(BaseModel):
     venue: str
     comment: Optional[str] = None
     cancel_reason: Optional[str] = None
+    cancelled_by: Optional[str] = None
+    emergency_cancellation: bool = False
     patient_comment: Optional[str] = None
     conclusion: Optional[str] = None
     emergency_contact: Optional[str] = None
@@ -74,12 +75,11 @@ class AppointmentBase(BaseModel):
 
 
 class AppointmentCreateRequest(BaseModel):
-    application_id: Optional[UUID] = None
-    patient_id: UUID
     psychologist_id: UUID
     type: AppointmentType
+    duration: Literal[60, 90] = 60
     scheduled_time: datetime
-    reason: Optional[str] = None
+    reason: Optional[str] = Field(None, max_length=2000)
     remind_time: Optional[datetime] = None
     venue: Optional[str] = None
     comment: Optional[str] = None
@@ -99,7 +99,8 @@ class AppointmentEmergencyContactRequest(BaseModel):
 
 
 class AppointmentCancelRequest(BaseModel):
-    cancel_reason: str
+    cancel_reason: str = Field(..., min_length=1, max_length=512)
+    is_emergency: bool = False
 
 
 class AppointmentDoneRequest(BaseModel):

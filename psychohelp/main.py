@@ -21,7 +21,6 @@ from psychohelp.models import (
     reviews,
     roles,
     permissions,
-    applications,
     articles,
     password_reset_tokens,
     appointment_reschedule_requests,
