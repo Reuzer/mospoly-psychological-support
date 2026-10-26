@@ -194,7 +194,7 @@ def upgrade() -> None:
         "appointments",
         ["psychologist_id", "scheduled_time"],
         unique=True,
-        postgresql_where=sa.text("status <> 'cancelled'::appointmentstatus"),
+        postgresql_where=sa.text("status = 'awaiting'::appointmentstatus"),
     )
 
 

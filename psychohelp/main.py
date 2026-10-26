@@ -13,6 +13,7 @@ from psychohelp.config.config import (
 )
 from psychohelp.config.logging import setup_logging, get_logger
 from psychohelp.routes import api_router
+from psychohelp.routes.controllers.users import limiter
 
 from psychohelp.models import (
     users,
@@ -54,9 +55,14 @@ engine = create_async_engine(config.DATABASE_URL, echo=False)
 
 
 def get_application() -> FastAPI:
-    application = FastAPI()
+    application = FastAPI(
+        title="Психологическая Служба API",
+        description="API для сервиса психологической помощи",
+        version="1.0.0",
+    )
     application.include_router(api_router)
 
+    application.state.limiter = limiter
     application.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     application.add_middleware(

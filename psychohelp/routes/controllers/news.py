@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.status import HTTP_201_CREATED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
+from psychohelp.schemas.errors import error_responses
 from psychohelp.config.logging import get_logger
 from psychohelp.constants.rbac import RoleCode
 from psychohelp.dependencies.auth import get_current_user
@@ -40,7 +41,7 @@ async def get_news_list(
     return news_list
 
 
-@router.get("/{news_id}", response_model=NewsResponse)
+@router.get("/{news_id}", responses=error_responses(404), response_model=NewsResponse)
 async def get_news(news_id: UUID) -> NewsResponse:
     news_item = await news_service.get_news_by_id(news_id)
     if news_item is None:
@@ -48,7 +49,7 @@ async def get_news(news_id: UUID) -> NewsResponse:
     return news_item
 
 
-@router.post("/", response_model=NewsResponse, status_code=HTTP_201_CREATED)
+@router.post("/", responses=error_responses(401, 403), response_model=NewsResponse, status_code=HTTP_201_CREATED)
 async def create_news(
     data: NewsCreateRequest,
     current_user: User = Depends(get_current_user),
@@ -59,7 +60,7 @@ async def create_news(
     return news_item
 
 
-@router.put("/{news_id}", response_model=NewsResponse)
+@router.put("/{news_id}", responses=error_responses(401, 403, 404), response_model=NewsResponse)
 async def update_news(
     news_id: UUID,
     data: NewsUpdateRequest,
@@ -73,7 +74,7 @@ async def update_news(
     return news_item
 
 
-@router.delete("/{news_id}")
+@router.delete("/{news_id}", responses=error_responses(401, 403, 404))
 async def delete_news(
     news_id: UUID,
     current_user: User = Depends(get_current_user),

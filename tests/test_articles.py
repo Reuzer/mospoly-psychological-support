@@ -46,7 +46,10 @@ async def test_create_article_allows_user_with_permission(monkeypatch):
         return True
 
     async def fake_create_article(article_data):
-        assert article_data == {"title": "Заголовок", "text": "Текст статьи"}
+        assert article_data == {
+            "slug": "test-article", "title": "Заголовок", "text": "Текст статьи",
+            "image": None, "date": None, "author": None, "description": None,
+        }
         return SimpleNamespace(id=article_id, **article_data)
 
     monkeypatch.setattr(permissions_module, "user_has_permission", fake_has_permission)
@@ -57,7 +60,7 @@ async def test_create_article_allows_user_with_permission(monkeypatch):
     )
 
     result = await articles_controller.create_article(
-        ArticleCreateRequest(title="Заголовок", text="Текст статьи"),
+        ArticleCreateRequest(slug="test-article", title="Заголовок", text="Текст статьи"),
         current_user=current_user,
     )
 
@@ -84,7 +87,7 @@ async def test_create_article_forbids_user_without_permission(monkeypatch):
 
     with pytest.raises(HTTPException) as exc:
         await articles_controller.create_article(
-            ArticleCreateRequest(title="Заголовок", text="Текст статьи"),
+            ArticleCreateRequest(slug="test-article", title="Заголовок", text="Текст статьи"),
             current_user=current_user,
         )
 

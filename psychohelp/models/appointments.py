@@ -27,7 +27,7 @@ class Appointment(Base):
             "psychologist_id",
             "scheduled_time",
             unique=True,
-            postgresql_where=text("status <> 'cancelled'::appointmentstatus"),
+            postgresql_where=text("status = 'awaiting'::appointmentstatus"),
         ),
     )
 
