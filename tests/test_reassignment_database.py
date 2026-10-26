@@ -16,7 +16,7 @@ from sqlalchemy.pool import NullPool
 from psychohelp.config.config import Base
 from psychohelp.constants.rbac import RoleCode
 from psychohelp.models.applications import Application, ApplicationStatus
-from psychohelp.models.appointments import Appointment, AppointmentStatus
+from psychohelp.models.appointments import Appointment, AppointmentStatus, AppointmentType
 from psychohelp.models.appointment_reschedule_requests import AppointmentRescheduleStatus
 from psychohelp.models.psychologists import Psychologist
 from psychohelp.models.roles import Role
@@ -28,6 +28,7 @@ from psychohelp.schemas.applications import ApplicationReassignRequest
 from psychohelp.services.applications import applications as applications_service
 from psychohelp.services.applications.exceptions import AccessDeniedError, ConflictError
 from psychohelp.services.appointments import appointments as appointments_service
+from psychohelp.services.appointments.exceptions import PsychologistUnavailableException
 
 
 @pytest.fixture
@@ -195,6 +196,104 @@ async def test_appointment_reassignment_invalidates_old_transfer_and_old_psychol
     requests = await reschedules_repo.get_reschedule_requests_by_appointment(appointment_id, state.patient.id)
     assert requests[0].status == AppointmentRescheduleStatus.rejected
     assert result.scheduled_time == state.application.scheduled_at
+
+
+async def add_second_appointment(state, psychologist_id):
+    async with state.sessions() as session:
+        appointment = Appointment(
+            patient_id=state.patient.id, psychologist_id=psychologist_id,
+            type=AppointmentType.Online, status=AppointmentStatus.awaiting,
+            scheduled_time=state.application.scheduled_at,
+            last_change_time=datetime.now(timezone.utc),
+            venue="https://example.com/second",
+        )
+        session.add(appointment)
+        await session.commit()
+        return appointment
+
+
+async def test_busy_psychologist_reassignment_rolls_back_all_related_data(database):
+    state = database
+    completed = await confirm(state)
+    appointment_id = completed.appointment_id
+    other = await add_second_appointment(state, state.profile.id)
+    request = await reschedules_repo.create_reschedule_request(
+        appointment_id=appointment_id, psychologist_user_id=state.previous.id,
+        scheduled_time=state.application.scheduled_at + timedelta(days=1),
+        remind_time=None, venue="Кабинет 2", comment=None,
+    )
+    before = await applications_repo.get_application_by_id(state.application.id)
+
+    with pytest.raises(PsychologistUnavailableException):
+        await appointments_service.reassign_appointment_to_self(appointment_id, state.actor.id)
+
+    current = await applications_repo.get_application_by_id(state.application.id)
+    assert current.version == before.version
+    assert current.updated_at == before.updated_at
+    assert current.psychologist_id == before.psychologist_id
+    assert current.assigned_to == before.assigned_to
+    assert current.appointment.psychologist_id == before.appointment.psychologist_id
+    assert current.appointment.last_change_time == before.appointment.last_change_time
+    assert current.appointment.scheduled_time == before.appointment.scheduled_time
+    requests = await reschedules_repo.get_reschedule_requests_by_appointment(appointment_id, state.patient.id)
+    assert requests[0].id == request.id
+    assert requests[0].status == AppointmentRescheduleStatus.pending
+    assert requests[0].responded_at is None
+    assert requests[0].rejection_comment is None
+    async with state.sessions() as session:
+        unchanged = await session.get(Appointment, other.id)
+        assert unchanged.psychologist_id == other.psychologist_id
+        assert unchanged.scheduled_time == other.scheduled_time
+        assert unchanged.last_change_time == other.last_change_time
+    assert await appointment_count(state) == 2
+
+
+async def test_parallel_reassignments_to_same_slot_allow_only_one_appointment(database, monkeypatch):
+    state = database
+    completed = await confirm(state)
+    other = await add_second_appointment(state, completed.psychologist_id)
+    # Обе транзакции сначала блокируют свои встречи, затем конкурируют за профиль.
+    # Барьер гарантирует конкуренцию двух транзакций за один профиль.
+    both_locked = asyncio.Event()
+    arrivals = 0
+
+    class ConcurrentSession(AsyncSession):
+        async def execute(self, statement, *args, **kwargs):
+            nonlocal arrivals
+            if (
+                statement.column_descriptions[0]["entity"] is Psychologist
+                and statement._for_update_arg is not None
+            ):
+                arrivals += 1
+                if arrivals == 2:
+                    both_locked.set()
+                await both_locked.wait()
+            return await super().execute(statement, *args, **kwargs)
+
+    sessions = sessionmaker(
+        state.sessions.kw["bind"], class_=ConcurrentSession, expire_on_commit=False,
+    )
+
+    @asynccontextmanager
+    async def get_db():
+        async with sessions() as session:
+            yield session
+
+    monkeypatch.setattr(appointments_repo, "get_async_db", get_db)
+    results = await asyncio.wait_for(asyncio.gather(
+        appointments_repo.reassign_appointment_to_psychologist(completed.appointment_id, state.actor.id),
+        appointments_repo.reassign_appointment_to_psychologist(other.id, state.actor.id),
+        return_exceptions=True,
+    ), 10)
+
+    assert sum(isinstance(result, Appointment) for result in results) == 1
+    assert sum(isinstance(result, PsychologistUnavailableException) for result in results) == 1
+    async with state.sessions() as session:
+        appointments = (await session.scalars(select(Appointment))).all()
+        assert len(appointments) == 2
+        assert sum(item.psychologist_id == state.profile.id for item in appointments) == 1
+        assert sum(item.psychologist_id == completed.psychologist_id for item in appointments) == 1
+        assert all(item.scheduled_time == state.application.scheduled_at for item in appointments)
 
 
 @pytest.mark.parametrize("same_psychologist", [False, True])

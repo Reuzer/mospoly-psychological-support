@@ -274,9 +274,9 @@ class FakeTransaction:
 
 
 class FakeSession:
-    def __init__(self, appointment, psychologist, applications=(), requests=(), statuses=()):
+    def __init__(self, appointment, psychologist, applications=(), requests=(), statuses=(), other_appointments=()):
         self.rows = {
-            Appointment: [appointment] if appointment else [],
+            Appointment: ([appointment] if appointment else []) + list(other_appointments),
             Psychologist: [psychologist] if psychologist else [],
             Application: list(applications),
             AppointmentRescheduleRequest: list(requests),
@@ -371,7 +371,11 @@ async def test_repository_syncs_both_application_links_and_rejects_pending_reque
     assert confirmed.status == AppointmentRescheduleStatus.confirmed
     assert confirmed.responded_at == old_time
     assert session.queries[0].column_descriptions[0]["entity"] is Appointment
-    assert all(query._for_update_arg is not None for query in session.queries[:-1])
+    assert all(
+        query._for_update_arg is not None
+        for query in session.queries[:-1]
+        if query.column_descriptions[0]["name"] != "id"
+    )
     assert session.queries[-1].get_execution_options()["populate_existing"] is True
 
 
@@ -503,6 +507,86 @@ async def test_repository_ignores_other_psychologist_and_other_time_unavailabili
     await appointments_repo.reassign_appointment_to_psychologist(appointment.id, actor.id)
     assert session.committed
     assert appointment.psychologist_id == profile.id
+
+
+@pytest.mark.parametrize("time_zone", [timezone.utc, timezone(timedelta(hours=3))])
+async def test_repository_rejects_busy_psychologist_without_changing_related_data(monkeypatch, time_zone):
+    actor = make_user()
+    profile = make_psychologist(actor)
+    appointment = make_appointment()
+    other = make_appointment(profile)
+    other.scheduled_time = appointment.scheduled_time.astimezone(time_zone)
+    application = SimpleNamespace(
+        id=appointment.application_id, appointment_id=appointment.id,
+        psychologist_id=appointment.psychologist_id,
+        assigned_to=appointment.psychologist.user_id,
+        version=3, updated_at=appointment.last_change_time,
+    )
+    pending = SimpleNamespace(
+        appointment_id=appointment.id, status=AppointmentRescheduleStatus.pending,
+        rejection_comment=None, responded_at=None,
+    )
+    objects = (appointment, other, application, pending)
+    snapshots = [vars(obj).copy() for obj in objects]
+    session = FakeSession(appointment, profile, [application], [pending], other_appointments=[other])
+    patch_session(monkeypatch, session)
+
+    with pytest.raises(appointment_exceptions.PsychologistUnavailableException) as error:
+        await appointments_repo.reassign_appointment_to_psychologist(appointment.id, actor.id)
+
+    assert error.value.psychologist_id == profile.id
+    assert error.value.scheduled_time == appointment.scheduled_time
+    assert [vars(obj) for obj in objects] == snapshots
+    assert session.rolled_back and not session.committed and not session.flushed
+
+
+@pytest.mark.parametrize("difference", ["psychologist", "time", "done", "cancelled"])
+async def test_repository_ignores_appointments_that_do_not_occupy_target_slot(monkeypatch, difference):
+    actor = make_user()
+    profile = make_psychologist(actor)
+    appointment = make_appointment()
+    other = make_appointment(profile)
+    other.scheduled_time = appointment.scheduled_time
+    if difference == "psychologist":
+        other.psychologist_id = appointment.psychologist_id
+    elif difference == "time":
+        other.scheduled_time += timedelta(hours=2)
+    else:
+        other.status = AppointmentStatus(difference)
+    snapshot = vars(other).copy()
+    session = FakeSession(appointment, profile, other_appointments=[other])
+    patch_session(monkeypatch, session)
+
+    result = await appointments_repo.reassign_appointment_to_psychologist(appointment.id, actor.id)
+
+    assert result.psychologist_id == profile.id
+    assert session.committed and session.flushed
+    assert vars(other) == snapshot
+
+
+async def test_http_busy_psychologist_returns_409_without_side_effects(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    actor = make_user()
+    profile = make_psychologist(actor)
+    appointment = make_appointment()
+    other = make_appointment(profile)
+    other.scheduled_time = appointment.scheduled_time
+    snapshots = [vars(obj).copy() for obj in (appointment, other)]
+    session = FakeSession(appointment, profile, other_appointments=[other])
+    patch_session(monkeypatch, session)
+    monkeypatch.setattr(appointments_service, "get_user_by_id", AsyncMock(return_value=actor))
+    monkeypatch.setattr(appointments_service, "get_psychologist_by_user_id", AsyncMock(return_value=profile))
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=make_http_app(actor)), base_url="http://test",
+    ) as client:
+        response = await client.post(f"/appointments/{appointment.id}/reassign")
+
+    assert response.status_code == 409
+    assert "недоступен" in response.json()["detail"]
+    assert [vars(obj) for obj in (appointment, other)] == snapshots
+    assert session.rolled_back and not session.flushed
 
 
 @pytest.mark.parametrize("same_psychologist", [False, True])

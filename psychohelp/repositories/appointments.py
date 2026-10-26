@@ -226,6 +226,24 @@ async def reassign_appointment_to_psychologist(
                     psychologist.id, appointment.scheduled_time
                 )
 
+            # Блокировка профиля сериализует переназначения на одного психолога.
+            # Другие встречи только читаем: их блокировка может вызвать дедлок
+            # с переназначением, уже захватившим свою встречу и ожидающим профиль.
+            busy_result = await session.execute(
+                select(Appointment.id)
+                .where(
+                    Appointment.psychologist_id == psychologist.id,
+                    Appointment.status == AppointmentStatus.awaiting,
+                    Appointment.scheduled_time == appointment.scheduled_time,
+                    Appointment.id != appointment_id,
+                )
+                .limit(1)
+            )
+            if busy_result.scalars().first() is not None:
+                raise exc.PsychologistUnavailableException(
+                    psychologist.id, appointment.scheduled_time
+                )
+
             pending_result = await session.execute(
                 select(AppointmentRescheduleRequest)
                 .where(
