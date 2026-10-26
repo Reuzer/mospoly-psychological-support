@@ -19,6 +19,8 @@ from starlette.status import HTTP_409_CONFLICT
 from psychohelp.config.config import config
 from PIL import Image, UnidentifiedImageError
 import io
+import tempfile
+from pathlib import Path
 
 
 async def get_user_by_id(user_id: UUID) -> User | None:
@@ -133,13 +135,24 @@ async def change_password(
 
 async def set_user_avatar(avatar, user):
     ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+    MAX_AVATAR_SIZE = 10 * 1024 * 1024
     config.AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+
 
     file_name = f"{user.id}.webp"
     file_path = config.AVATAR_DIR / file_name
 
+    temp_path = None
+
     try:
         contents = await avatar.read()
+
+        if len(contents) > MAX_AVATAR_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="Размер аватарки не должен превышать 10 МБ",
+            )
+
 
         image_stream = io.BytesIO(contents)
 
@@ -151,25 +164,33 @@ async def set_user_avatar(avatar, user):
             else:
                 img = img.convert("RGB")
 
-            img.save(file_path, "WEBP", quality=85)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".webp", dir=config.AVATAR_DIR) as temp_file:
+                temp_path = Path(temp_file.name)
+
+            img.save(temp_path, "WEBP", quality=85)
+
+        temp_path.replace(file_path)
+        temp_path = None 
         await set_avatar(file_name, user)
 
     except UnidentifiedImageError as e:
-        if file_path.exists():
-            file_path.unlink()
         raise InvalidImageError("Uploaded file is not a valid image.") from e
     
     except OSError as e:
-        if file_path.exists():
-            file_path.unlink()
         raise ImageProcessingError("Could not process image due to server error.") from e
 
+    finally:
+        if temp_path is not None and temp_path.exists():
+            temp_path.unlink()
 
 async def get_user_avatar(user_id):
     user = await get_avatar(user_id)
 
     if not user:
         raise UserNotFound(user_id)
+
+    if not user.avatar:
+        return None
 
     avatar_url = f"/media/avatars/{user.avatar}"
     return avatar_url
