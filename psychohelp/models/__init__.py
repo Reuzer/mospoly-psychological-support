@@ -7,6 +7,5 @@ from psychohelp.models import reviews
 from psychohelp.models import articles
 from psychohelp.models import password_reset_tokens
 from psychohelp.models import appointment_reschedule_requests
-from .applications import Application
 from .news import News
 from .psy_tests import PsyTest
