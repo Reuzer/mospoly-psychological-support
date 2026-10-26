@@ -11,7 +11,6 @@ from psychohelp.dependencies.auth import get_current_user, get_optional_user
 from psychohelp.models.appointments import AppointmentStatus, AppointmentType
 from psychohelp.repositories import appointments as repository
 from psychohelp.routes.controllers import appointments as controller
-from psychohelp.schemas.applications import AppointmentFullResponse
 from psychohelp.services.rbac import permissions
 
 
@@ -158,7 +157,3 @@ async def test_authentication_required(api):
         response = await client.patch(f"/appointments/{uuid4()}/emergency-contact", json={"emergency_contact": None})
     assert response.status_code == 401
     assert api.commits == 0
-
-
-def test_contact_is_not_exposed_in_application_schema():
-    assert "emergency_contact" not in AppointmentFullResponse.model_fields

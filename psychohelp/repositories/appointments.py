@@ -7,7 +7,6 @@ from sqlalchemy.orm import selectinload
 
 from psychohelp.models.psychologists import Psychologist
 from psychohelp.models.psychologist_statuses import PsychologistStatus, PsychologistStatusType
-from psychohelp.models.applications import Application
 from psychohelp.models.appointment_reschedule_requests import (
     AppointmentRescheduleRequest,
     AppointmentRescheduleStatus,
@@ -16,7 +15,6 @@ from psychohelp.models.users import User
 from psychohelp.config.config import get_async_db
 from psychohelp.services.appointments import exceptions as exc
 
-from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
@@ -55,6 +53,24 @@ async def get_appointment_by_id(appointment_id: UUID, user_id: UUID) -> Appointm
         return result.scalar_one_or_none()
 
 
+async def is_appointment_slot_available(
+    psychologist_id: UUID,
+    scheduled_time: datetime,
+    exclude_appointment_id: UUID | None = None,
+) -> bool:
+    async with get_async_db() as session:
+        query = select(Appointment.id).where(
+            Appointment.psychologist_id == psychologist_id,
+            Appointment.scheduled_time == scheduled_time,
+            Appointment.status == AppointmentStatus.awaiting,
+        )
+        if exclude_appointment_id is not None:
+            query = query.where(Appointment.id != exclude_appointment_id)
+
+        result = await session.execute(query)
+        return result.scalar_one_or_none() is None
+
+
 async def update_emergency_contact(
     appointment_id: UUID, user_id: UUID, emergency_contact: str | None,
 ) -> Appointment:
@@ -87,22 +103,21 @@ async def create_appointment(
     patient_id: UUID,
     psychologist_id: UUID,
     type: AppointmentType,
+    duration: int,
     reason: str | None,
     status: AppointmentStatus,
     scheduled_time: datetime,
     remind_time: datetime | None,
     last_change_time: datetime,
     venue: str,
-    application_id: UUID | None = None,
     comment: str | None = None,
 ) -> Appointment:
-    # Убрали передачу имен из параметров
     async with get_async_db() as session:
         new_appointment = Appointment(
             patient_id=patient_id,
             psychologist_id=psychologist_id,
-            application_id=application_id,
             type=type,
+            duration=duration,
             reason=reason,
             status=status,
             scheduled_time=scheduled_time,
@@ -123,7 +138,12 @@ async def create_appointment(
         return new_appointment
 
 
-async def cancel_appointment_by_id(appointment_id: UUID, current_user_id: UUID, cancel_reason: str) -> Appointment:
+async def cancel_appointment_by_id(
+    appointment_id: UUID,
+    current_user_id: UUID,
+    cancel_reason: str,
+    is_emergency: bool = False,
+) -> Appointment:
     async with get_async_db() as session:
         # Благодаря selectinload(Appointment.psychologist) у нас есть доступ к объекту психолога
         query = select(Appointment).options(
@@ -137,14 +157,22 @@ async def cancel_appointment_by_id(appointment_id: UUID, current_user_id: UUID, 
         if appointment is None:
             raise ValueError("Встреча не найдена")
 
-        if appointment.patient_id != current_user_id and appointment.psychologist.user_id != current_user_id:
-            raise ValueError("Только пациент или психолог может отменить свою запись")
+        is_patient = appointment.patient_id == current_user_id
+        is_psychologist = appointment.psychologist.user_id == current_user_id
 
-        if appointment.status == AppointmentStatus.cancelled:
-            raise ValueError("Встреча уже отменена")
+        if not is_patient and not is_psychologist:
+            raise PermissionError("Только пациент или назначенный психолог может отменить запись")
+
+        if is_psychologist and not is_emergency:
+            raise PermissionError("Психолог может отменить запись только при ЧС")
+
+        if appointment.status in (AppointmentStatus.done, AppointmentStatus.cancelled):
+            raise ValueError("Завершенную или отмененную запись нельзя отменить повторно")
 
         appointment.status = AppointmentStatus.cancelled
         appointment.cancel_reason = cancel_reason
+        appointment.cancelled_by = "patient" if is_patient else "psychologist"
+        appointment.emergency_cancellation = is_psychologist
         appointment.last_change_time = datetime.now(timezone.utc)
 
         try:
@@ -179,7 +207,7 @@ async def reassign_appointment_to_psychologist(
     appointment_id: UUID,
     psychologist_user_id: UUID,
 ) -> Appointment:
-    """Атомарно сменить психолога записи, связанных заявок и запросов переноса."""
+    """Атомарно сменить психолога записи и закрыть ожидающие запросы переноса."""
     async with get_async_db() as session:
         async with session.begin():
             appointment_result = await session.execute(
@@ -254,28 +282,12 @@ async def reassign_appointment_to_psychologist(
             )
             pending_requests = list(pending_result.scalars().all())
 
-            application_links = [Application.appointment_id == appointment_id]
-            if appointment.application_id is not None:
-                application_links.append(Application.id == appointment.application_id)
-            applications_result = await session.execute(
-                select(Application)
-                .where(or_(*application_links))
-                .order_by(Application.id)
-                .with_for_update()
-            )
-            applications = list(applications_result.scalars().all())
-
             # Ожидание блокировок могло занять время до начала встречи.
             _ensure_appointment_reassignable(appointment)
             now = datetime.now(timezone.utc)
             appointment.psychologist_id = psychologist.id
             appointment.psychologist = psychologist
             appointment.last_change_time = now
-            for application in applications:
-                application.psychologist_id = psychologist.id
-                application.assigned_to = psychologist_user_id
-                application.updated_at = now
-                application.version += 1
             for pending_request in pending_requests:
                 pending_request.status = AppointmentRescheduleStatus.rejected
                 pending_request.rejection_comment = "Запись переназначена другому психологу"
