@@ -71,6 +71,27 @@ class ApplicationStateMachine:
         }
         return await self._transition(ApplicationStatus.AWAITING_USER_CONFIRMATION, update_data, actor_id, actor_type)
 
+    async def reassign(self, offer_data: dict, actor_id: UUID) -> Application:
+        if self.application.status != ApplicationStatus.AWAITING_USER_CONFIRMATION:
+            raise InvalidStatusTransitionError(
+                "Переназначить заявку можно только на этапе подтверждения пользователя"
+            )
+        update_data = {
+            "assigned_to": actor_id,
+            "psychologist_id": offer_data["psychologist_id"],
+            "meeting_type": offer_data["meeting_type"],
+            "scheduled_at": offer_data["scheduled_at"],
+            "location_address": offer_data.get("location_address"),
+            "meeting_url": offer_data.get("meeting_url"),
+            "confirmation_requested_at": datetime.now(timezone.utc),
+        }
+        return await self._transition(
+            ApplicationStatus.AWAITING_USER_CONFIRMATION,
+            update_data,
+            actor_id,
+            "psychologist",
+        )
+
     async def confirm(self, actor_id: UUID, actor_type: str, appointment_id: UUID) -> Application:
         if self.application.status != ApplicationStatus.AWAITING_USER_CONFIRMATION:
             raise InvalidStatusTransitionError(f"Невозможно подтвердить из статуса {self.application.status}")

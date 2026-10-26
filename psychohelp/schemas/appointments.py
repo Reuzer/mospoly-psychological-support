@@ -74,7 +74,13 @@ class AppointmentBase(BaseModel):
 
 
 class AppointmentCreateRequest(BaseModel):
-    application_id: Optional[UUID] = None
+    application_id: Optional[UUID] = Field(
+        None,
+        deprecated=True,
+        description="Для самостоятельной записи передавать не нужно. "
+        "Записи по заявке создаются только через POST /applications/{application_id}/confirm; "
+        "непустое значение возвращает 400.",
+    )
     patient_id: UUID
     psychologist_id: UUID
     type: AppointmentType

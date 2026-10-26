@@ -9,6 +9,7 @@ from starlette.status import (
     HTTP_404_NOT_FOUND,
 )
 
+from psychohelp.schemas.errors import error_responses
 from psychohelp.models.users import User
 from psychohelp.dependencies.auth import get_current_user
 from psychohelp.services.rbac.permissions import user_has_permission
@@ -43,6 +44,7 @@ router = APIRouter(
 
 @router.post(
     "/{user_id}/statuses",
+    responses=error_responses(400, 401, 403, 404),
     response_model=PsychologistStatusResponse,
     status_code=HTTP_201_CREATED,
 )
@@ -91,7 +93,7 @@ async def set_psychologist_status(
             detail=f"Психолог с ID {e.psychologist_id} не найден"
         )
 
-@router.delete("/{user_id}/statuses/{status_id}")
+@router.delete("/{user_id}/statuses/{status_id}", responses=error_responses(401, 403, 404))
 async def delete_psychologist_status(
     user_id: UUID,
     status_id: UUID,
@@ -125,7 +127,7 @@ async def delete_psychologist_status(
             detail=f"Статус с ID {e.status_id} не найден"
         )
 
-@router.get("/{user_id}/statuses", response_model=list[PsychologistStatusResponse])
+@router.get("/{user_id}/statuses", responses=error_responses(401, 403, 404), response_model=list[PsychologistStatusResponse])
 async def get_psychologist_statuses(
     user_id: UUID,
     current_user: User = Depends(get_current_user)
@@ -151,7 +153,7 @@ async def get_psychologist_statuses(
             detail=f"Психолог с ID {e.psychologist_id} не найден"
         )
 
-@router.get("/{user_id}/statuses/current", response_model=CurrentStatusInfoResponse)
+@router.get("/{user_id}/statuses/current", responses=error_responses(403), response_model=CurrentStatusInfoResponse)
 async def get_psychologist_current_status(
     user_id: UUID
 ):
