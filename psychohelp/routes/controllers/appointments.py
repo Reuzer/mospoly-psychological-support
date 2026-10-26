@@ -118,7 +118,7 @@ async def get_appointments(
 
 
 @router.post(
-    "/create", responses=error_responses(400, 401, 403, 404, 409),
+    "/create", responses=error_responses(400, 401, 403, 404),
     response_model=AppointmentBase,
     status_code=HTTP_201_CREATED,
 )
@@ -132,9 +132,22 @@ async def create_appointment(
     ),
 ) -> AppointmentBase:
     try:
-        created_appointment = await srv_create_appointment(
-            patient_id=current_user.id,
-            **appointment.model_dump(),
+        if (
+            appointment.patient_id
+            != current_user.id
+        ):
+            raise HTTPException(
+                status_code=HTTP_403_FORBIDDEN,
+                detail=(
+                    "Вы можете создавать записи "
+                    "только для себя"
+                ),
+            )
+
+        created_appointment = (
+            await srv_create_appointment(
+                **appointment.model_dump()
+            )
         )
 
         return created_appointment
@@ -162,6 +175,12 @@ async def create_appointment(
             detail="Пациент не найден",
         )
 
+    except exc.ApplicationNotFoundException:
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND,
+            detail="Заявка не найдена",
+        )
+
     except exc.PsychologistNotFoundException:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
@@ -184,12 +203,6 @@ async def create_appointment(
                 "Психолог в отпуске или на больничном "
                 f"в указанное время: {e.scheduled_time}"
             ),
-        )
-
-    except exc.AppointmentSlotOccupiedException as e:
-        raise HTTPException(
-            status_code=HTTP_409_CONFLICT,
-            detail=str(e),
         )
 
     except ValueError as e:
@@ -258,20 +271,9 @@ async def cancel_appointment(
 ) -> MessageResponse:
     """Отменить запись на прием (для пациента)"""
     try:
-        await cancel_appointment_by_member(
-            id,
-            current_user.id,
-            request.cancel_reason,
-            request.is_emergency,
-        )
+        await cancel_appointment_by_member(id, current_user.id, request.cancel_reason)
         logger.info(f"Appointment cancelled: {id} by user: {current_user.id}. Reason: {request.cancel_reason}")
         return MessageResponse(message="Запись успешно отменена")
-
-    except PermissionError as e:
-        raise HTTPException(
-            status_code=HTTP_403_FORBIDDEN,
-            detail=str(e),
-        )
 
     except ValueError as e:
         raise HTTPException(
@@ -288,7 +290,7 @@ async def cancel_appointment(
     "со временем встречи строго в будущем. Если время уже наступило, возвращается 409. "
     "Если новый психолог в отпуске, на больничном или уже имеет ожидающую встречу "
     "на это время, возвращается 409 без изменения записи. "
-    "Ожидающие запросы переноса отклоняются. "
+    "Связанная заявка обновляется, ожидающие запросы переноса отклоняются. "
     "Повторный запрос назначенного психолога возвращает текущую запись.",
 )
 async def reassign_appointment(
@@ -373,7 +375,7 @@ async def get_reschedule_requests(
 
 
 @router.post(
-    "/{id}/reschedule-requests", responses=error_responses(400, 401, 403, 404, 409),
+    "/{id}/reschedule-requests", responses=error_responses(400, 401, 403, 404),
     response_model=(
         AppointmentRescheduleRequestResponse
     ),
@@ -447,15 +449,9 @@ async def request_reschedule(
             ),
         )
 
-    except exc.AppointmentSlotOccupiedException as e:
-        raise HTTPException(
-            status_code=HTTP_409_CONFLICT,
-            detail=str(e),
-        )
-
 
 @router.post(
-    "/reschedule-requests/{request_id}/confirm", responses=error_responses(400, 401, 403, 409),
+    "/reschedule-requests/{request_id}/confirm", responses=error_responses(400, 401, 403),
     response_model=(
         AppointmentRescheduleRequestResponse
     ),
@@ -478,12 +474,6 @@ async def confirm_reschedule(
     except PermissionError as e:
         raise HTTPException(
             status_code=HTTP_403_FORBIDDEN,
-            detail=str(e),
-        )
-
-    except exc.AppointmentSlotOccupiedException as e:
-        raise HTTPException(
-            status_code=HTTP_409_CONFLICT,
             detail=str(e),
         )
 

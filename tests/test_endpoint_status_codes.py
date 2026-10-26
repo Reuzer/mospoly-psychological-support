@@ -39,9 +39,9 @@ PROTECTED_ENDPOINTS = [
         "POST",
         "/appointments/create",
         {
+            "patient_id": str(USER_ID),
             "psychologist_id": RESOURCE_ID,
             "type": "Online",
-            "duration": 60,
             "scheduled_time": FUTURE_TIME,
             "venue": "https://example.com/meeting",
         },
@@ -83,6 +83,35 @@ PROTECTED_ENDPOINTS = [
         },
     ),
     ("DELETE", f"/therapists/{RESOURCE_ID}", None),
+    (
+        "POST",
+        "/applications/",
+        {
+            "psychologist_id": RESOURCE_ID,
+            "scheduled_at": FUTURE_TIME,
+            "problem_description": "Описание проблемы",
+            "university_status": "студент",
+        },
+    ),
+    ("GET", "/applications/", None),
+    ("GET", f"/applications/{RESOURCE_ID}", None),
+    ("POST", f"/applications/{RESOURCE_ID}/accept", {"assigned_to": RESOURCE_ID}),
+    (
+        "POST",
+        f"/applications/{RESOURCE_ID}/offer",
+        {
+            "psychologist_id": RESOURCE_ID,
+            "meeting_type": "online",
+            "scheduled_at": FUTURE_TIME,
+        },
+    ),
+    ("POST", f"/applications/{RESOURCE_ID}/confirm", None),
+    ("POST", f"/applications/{RESOURCE_ID}/reject", {"reject_reason": "Причина"}),
+    (
+        "POST",
+        f"/applications/{RESOURCE_ID}/cancel",
+        {"cancel_reason": "Причина", "cancel_initiator": "user"},
+    ),
     ("POST", "/articles/", {"slug": "article", "title": "Статья", "text": "Текст"}),
     ("PUT", f"/articles/{RESOURCE_ID}", {}),
     ("DELETE", f"/articles/{RESOURCE_ID}", None),
@@ -300,8 +329,8 @@ async def test_create_appointment_returns_201(monkeypatch):
         id=uuid4(),
         patient=patient,
         psychologist=psychologist,
+        application_id=None,
         type=AppointmentType.Online,
-        duration=60,
         reason=None,
         status=AppointmentStatus.awaiting,
         scheduled_time=now + timedelta(days=1),
@@ -310,8 +339,6 @@ async def test_create_appointment_returns_201(monkeypatch):
         venue="https://example.com/meeting",
         comment=None,
         cancel_reason=None,
-        cancelled_by=None,
-        emergency_cancellation=False,
         patient_comment=None,
         conclusion=None,
     )
@@ -322,10 +349,7 @@ async def test_create_appointment_returns_201(monkeypatch):
     async def fake_has_permission(_user_id, _permission_code):
         return True
 
-    captured = {}
-
-    async def fake_create_appointment(**kwargs):
-        captured.update(kwargs)
+    async def fake_create_appointment(**_kwargs):
         return appointment
 
     app.dependency_overrides[get_current_user] = fake_current_user
@@ -341,9 +365,9 @@ async def test_create_appointment_returns_201(monkeypatch):
             response = await client.post(
                 "/appointments/create",
                 json={
+                    "patient_id": str(USER_ID),
                     "psychologist_id": str(psychologist.id),
                     "type": "Online",
-                    "duration": 60,
                     "scheduled_time": (now + timedelta(days=1)).isoformat(),
                     "venue": "https://example.com/meeting",
                 },
@@ -352,7 +376,6 @@ async def test_create_appointment_returns_201(monkeypatch):
         app.dependency_overrides.clear()
 
     assert response.status_code == 201, response.text
-    assert captured["patient_id"] == USER_ID
 
 
 @pytest.mark.asyncio
@@ -378,6 +401,7 @@ def test_openapi_declares_expected_success_status_codes():
         ("post", "/appointments/{id}/reschedule-requests"),
         ("post", "/therapists/"),
         ("post", "/therapists/{user_id}/statuses"),
+        ("post", "/applications/"),
         ("post", "/articles/"),
         ("post", "/news/"),
         ("post", "/psy-tests/"),
@@ -390,7 +414,3 @@ def test_openapi_declares_expected_success_status_codes():
                 continue
             expected = "201" if (method, path) in created_routes else "200"
             assert expected in operation["responses"], (method, path, operation["responses"])
-
-
-def test_application_routes_are_removed():
-    assert not any(path.startswith("/applications") for path in app.openapi()["paths"])

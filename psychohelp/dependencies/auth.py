@@ -48,14 +48,6 @@ async def get_optional_user(
         return None
 
     try:
-        user = await get_user_by_token(access_token)
+        return await get_user_by_token(access_token)
     except (PyJWTError, KeyError, ValueError, TypeError):
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="Недействительный или просроченный токен",
-        )
-
-    if user is None:
-        raise _unauthorized()
-
-    return user
+        return None

@@ -10,6 +10,7 @@ from sqlalchemy.sql.elements import BooleanClauseList, Grouping
 
 from psychohelp.constants.rbac import RoleCode
 from psychohelp.dependencies.auth import get_current_user
+from psychohelp.models.applications import Application
 from psychohelp.models.appointment_reschedule_requests import (
     AppointmentRescheduleRequest,
     AppointmentRescheduleStatus,
@@ -63,6 +64,7 @@ def make_appointment(psychologist=None):
         patient_id=patient.id,
         psychologist=psychologist,
         psychologist_id=psychologist.id,
+        application_id=uuid4(),
         status=AppointmentStatus.awaiting,
         type=AppointmentType.Offline,
         scheduled_time=now + timedelta(days=1),
@@ -223,7 +225,7 @@ async def test_reassignment_http_maps_domain_errors(monkeypatch, error, status):
 
 
 def matches(expression, row):
-    """Evaluate SQL predicates against fake rows."""
+    """Evaluate SQL predicates against rows, including both application FK links."""
     if isinstance(expression, Grouping):
         return matches(expression.element, row)
     if isinstance(expression, BooleanClauseList):
@@ -272,10 +274,11 @@ class FakeTransaction:
 
 
 class FakeSession:
-    def __init__(self, appointment, psychologist, requests=(), statuses=(), other_appointments=()):
+    def __init__(self, appointment, psychologist, applications=(), requests=(), statuses=(), other_appointments=()):
         self.rows = {
             Appointment: ([appointment] if appointment else []) + list(other_appointments),
             Psychologist: [psychologist] if psychologist else [],
+            Application: list(applications),
             AppointmentRescheduleRequest: list(requests),
             PsychologistStatus: list(statuses),
         }
@@ -307,7 +310,7 @@ def patch_session(monkeypatch, session):
 
 
 @pytest.mark.asyncio
-async def test_repository_reassigns_appointment_and_rejects_pending_requests(monkeypatch):
+async def test_repository_syncs_both_application_links_and_rejects_pending_requests(monkeypatch):
     actor = make_user()
     new_psychologist = make_psychologist(actor)
     appointment = make_appointment()
@@ -317,6 +320,17 @@ async def test_repository_reassigns_appointment_and_rejects_pending_requests(mon
         name: getattr(appointment, name)
         for name in ("status", "scheduled_time", "remind_time", "venue", "type", "comment", "reason", "emergency_contact")
     }
+    applications = [
+        SimpleNamespace(id=appointment.application_id, appointment_id=None),
+        SimpleNamespace(id=uuid4(), appointment_id=appointment.id),
+        SimpleNamespace(id=uuid4(), appointment_id=uuid4()),
+    ]
+    for application in applications:
+        application.psychologist_id = old_psychologist.id
+        application.assigned_to = old_psychologist.user_id
+        application.version = 3
+        application.updated_at = old_time
+        application.status = "completed"
     pending = SimpleNamespace(
         appointment_id=appointment.id,
         requested_by_user_id=old_psychologist.user_id,
@@ -330,7 +344,7 @@ async def test_repository_reassigns_appointment_and_rejects_pending_requests(mon
         rejection_comment=None,
         responded_at=old_time,
     )
-    session = FakeSession(appointment, new_psychologist, [pending, confirmed])
+    session = FakeSession(appointment, new_psychologist, applications, [pending, confirmed])
     patch_session(monkeypatch, session)
 
     result = await appointments_repo.reassign_appointment_to_psychologist(appointment.id, actor.id)
@@ -343,6 +357,14 @@ async def test_repository_reassigns_appointment_and_rejects_pending_requests(mon
     assert result.last_change_time > old_time
     for name, value in agreed_fields.items():
         assert getattr(result, name) == value
+    for application in applications[:2]:
+        assert application.psychologist_id == new_psychologist.id
+        assert application.assigned_to == actor.id
+        assert application.version == 4
+        assert application.updated_at == result.last_change_time
+        assert application.status == "completed"
+    assert applications[2].psychologist_id == old_psychologist.id
+    assert applications[2].version == 3
     assert pending.status == AppointmentRescheduleStatus.rejected
     assert "переназначена" in pending.rejection_comment
     assert pending.responded_at == result.last_change_time
@@ -355,6 +377,29 @@ async def test_repository_reassigns_appointment_and_rejects_pending_requests(mon
         if query.column_descriptions[0]["name"] != "id"
     )
     assert session.queries[-1].get_execution_options()["populate_existing"] is True
+
+
+@pytest.mark.asyncio
+async def test_repository_updates_application_with_both_links_only_once(monkeypatch):
+    actor = make_user()
+    profile = make_psychologist(actor)
+    appointment = make_appointment()
+    application = SimpleNamespace(
+        id=appointment.application_id,
+        appointment_id=appointment.id,
+        psychologist_id=appointment.psychologist_id,
+        assigned_to=appointment.psychologist.user_id,
+        updated_at=appointment.last_change_time,
+        version=8,
+    )
+    session = FakeSession(appointment, profile, [application])
+    patch_session(monkeypatch, session)
+
+    await appointments_repo.reassign_appointment_to_psychologist(appointment.id, actor.id)
+
+    assert application.version == 9
+
+
 @pytest.mark.asyncio
 async def test_repository_same_psychologist_is_noop_even_with_pending_or_unavailability(monkeypatch):
     actor = make_user()
@@ -362,12 +407,15 @@ async def test_repository_same_psychologist_is_noop_even_with_pending_or_unavail
     appointment = make_appointment(psychologist)
     old_time = appointment.last_change_time
     pending = SimpleNamespace(status=AppointmentRescheduleStatus.pending)
-    session = FakeSession(appointment, psychologist, [pending], [SimpleNamespace()])
+    application = SimpleNamespace(version=3, updated_at=old_time)
+    session = FakeSession(appointment, psychologist, [application], [pending], [SimpleNamespace()])
     patch_session(monkeypatch, session)
 
     assert await appointments_repo.reassign_appointment_to_psychologist(appointment.id, actor.id) is appointment
 
     assert appointment.last_change_time == old_time
+    assert application.version == 3
+    assert application.updated_at == old_time
     assert pending.status == AppointmentRescheduleStatus.pending
     assert len(session.queries) == 2
     assert session.flushed is False
@@ -468,13 +516,19 @@ async def test_repository_rejects_busy_psychologist_without_changing_related_dat
     appointment = make_appointment()
     other = make_appointment(profile)
     other.scheduled_time = appointment.scheduled_time.astimezone(time_zone)
+    application = SimpleNamespace(
+        id=appointment.application_id, appointment_id=appointment.id,
+        psychologist_id=appointment.psychologist_id,
+        assigned_to=appointment.psychologist.user_id,
+        version=3, updated_at=appointment.last_change_time,
+    )
     pending = SimpleNamespace(
         appointment_id=appointment.id, status=AppointmentRescheduleStatus.pending,
         rejection_comment=None, responded_at=None,
     )
-    objects = (appointment, other, pending)
+    objects = (appointment, other, application, pending)
     snapshots = [vars(obj).copy() for obj in objects]
-    session = FakeSession(appointment, profile, [pending], other_appointments=[other])
+    session = FakeSession(appointment, profile, [application], [pending], other_appointments=[other])
     patch_session(monkeypatch, session)
 
     with pytest.raises(appointment_exceptions.PsychologistUnavailableException) as error:
@@ -555,14 +609,16 @@ async def test_elapsed_appointments_cannot_be_reassigned_even_by_current_psychol
     scheduled = now + timedelta(seconds=offset_seconds)
     appointment.scheduled_time = scheduled.astimezone(time_zone) if time_zone else scheduled.replace(tzinfo=None)
     snapshot = vars(appointment).copy()
+    application = SimpleNamespace(version=3)
     pending = SimpleNamespace(status=AppointmentRescheduleStatus.pending)
-    session = FakeSession(appointment, profile, [pending])
+    session = FakeSession(appointment, profile, [application], [pending])
     patch_session(monkeypatch, session)
 
     with pytest.raises(ValueError, match="время которой уже наступило"):
         await appointments_repo.reassign_appointment_to_psychologist(appointment.id, actor.id)
 
     assert vars(appointment) == snapshot
+    assert application.version == 3
     assert pending.status == AppointmentRescheduleStatus.pending
     assert session.rolled_back and not session.committed and not session.flushed
 
@@ -587,17 +643,11 @@ async def test_time_is_rechecked_after_waiting_for_other_locks(monkeypatch, same
         async def execute(self, query):
             result = await super().execute(query)
             entity = query.column_descriptions[0]["entity"]
-            if entity is (
-                Psychologist if same_psychologist else AppointmentRescheduleRequest
-            ):
+            if entity is (Psychologist if same_psychologist else Application):
                 clock.now = appointment.scheduled_time
             return result
 
-    pending = SimpleNamespace(
-        appointment_id=appointment.id,
-        status=AppointmentRescheduleStatus.pending,
-    )
-    session = DelayedSession(appointment, profile, [pending])
+    session = DelayedSession(appointment, profile)
     patch_session(monkeypatch, session)
     with pytest.raises(ValueError, match="время которой уже наступило"):
         await appointments_repo.reassign_appointment_to_psychologist(appointment.id, actor.id)
