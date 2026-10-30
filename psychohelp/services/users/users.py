@@ -170,12 +170,12 @@ async def set_user_avatar(avatar, user):
             img.save(temp_path, "WEBP", quality=85)
 
         temp_path.replace(file_path)
-        temp_path = None 
+        temp_path = None
         await set_avatar(file_name, user)
 
     except UnidentifiedImageError as e:
         raise InvalidImageError("Uploaded file is not a valid image.") from e
-    
+
     except OSError as e:
         raise ImageProcessingError("Could not process image due to server error.") from e
 

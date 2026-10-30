@@ -262,7 +262,7 @@ async def get_my_status(
     return UserStatusResponse.model_validate(user_status)
 
 @router.put(
-    "/me/avatar", 
+    "/me/avatar",
     response_model=SetUserAvatarResponse,
 )
 async def set_user_avatar(
