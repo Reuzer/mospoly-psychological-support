@@ -4,17 +4,23 @@ from psychohelp.repositories.users import (
     get_user_by_email as repo_get_user_by_email,
     get_user_by_token as repo_get_user_by_token,
     create_user,
+    get_avatar,
     UUID,
 )
 from psychohelp.models.users import User
 from psychohelp.services.users import exceptions, models
 from psychohelp.schemas.users import UserUpdateRequest
-from psychohelp.repositories.users import update_user, get_user_by_id
-from psychohelp.services.users.exceptions import UserNotFound, PermissionDenied
+from psychohelp.repositories.users import update_user, get_user_by_id, set_avatar
+from psychohelp.services.users.exceptions import UserNotFound, PermissionDenied, InvalidImageError, ImageProcessingError
 from psychohelp.repositories import verify_password, hash_password
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from starlette.status import HTTP_409_CONFLICT
+from psychohelp.config.config import config
+from PIL import Image, UnidentifiedImageError
+import io
+import tempfile
+from pathlib import Path
 
 
 async def get_user_by_id(user_id: UUID) -> User | None:
@@ -125,3 +131,66 @@ async def change_password(
         raise ValueError("Неверный старый пароль")
 
     await update_user(user_id, {"password": hash_password(new_password)})
+
+
+async def set_user_avatar(avatar, user):
+    ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+    MAX_AVATAR_SIZE = 10 * 1024 * 1024
+    config.AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+
+
+    file_name = f"{user.id}.webp"
+    file_path = config.AVATAR_DIR / file_name
+
+    temp_path = None
+
+    try:
+        contents = await avatar.read()
+
+        if len(contents) > MAX_AVATAR_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="Размер аватарки не должен превышать 10 МБ",
+            )
+
+
+        image_stream = io.BytesIO(contents)
+
+        with Image.open(image_stream) as img:
+            if img.format not in ALLOWED_FORMATS:
+                raise InvalidImageError(f"Invalid image format: {img.format}")
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGBA")
+            else:
+                img = img.convert("RGB")
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".webp", dir=config.AVATAR_DIR) as temp_file:
+                temp_path = Path(temp_file.name)
+
+            img.save(temp_path, "WEBP", quality=85)
+
+        temp_path.replace(file_path)
+        temp_path = None
+        await set_avatar(file_name, user)
+
+    except UnidentifiedImageError as e:
+        raise InvalidImageError("Uploaded file is not a valid image.") from e
+
+    except OSError as e:
+        raise ImageProcessingError("Could not process image due to server error.") from e
+
+    finally:
+        if temp_path is not None and temp_path.exists():
+            temp_path.unlink()
+
+async def get_user_avatar(user_id):
+    user = await get_avatar(user_id)
+
+    if not user:
+        raise UserNotFound(user_id)
+
+    if not user.avatar:
+        return None
+
+    avatar_url = f"/media/avatars/{user.avatar}"
+    return avatar_url
