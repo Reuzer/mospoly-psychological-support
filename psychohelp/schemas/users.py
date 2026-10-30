@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from pydantic_extra_types.phone_numbers import PhoneNumber
 from typing import Optional
 from psychohelp.schemas.roles import RoleResponse 
@@ -98,6 +98,12 @@ class PasswordChangeRequest(BaseModel):
     """Схема для смены пароля"""
     old_password: str = Field(..., min_length=8, max_length=64)
     new_password: str = Field(..., min_length=8, max_length=64)
+
+    @model_validator(mode="after")
+    def validate_password_change(self) -> "PasswordChangeRequest":
+        if self.new_password == self.old_password:
+            raise ValueError("Новый пароль должен отличаться от текущего")
+        return self
 
 
 class PasswordResetRequest(BaseModel):
