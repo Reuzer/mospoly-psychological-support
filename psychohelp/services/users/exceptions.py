@@ -8,3 +8,9 @@ class InvalidToken(Exception):
     pass
 class PermissionDenied(Exception):
     pass
+
+class InvalidImageError(Exception):
+    pass
+
+class ImageProcessingError(Exception):
+    pass

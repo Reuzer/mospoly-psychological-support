@@ -587,6 +587,95 @@
         ]
       }
     },
+    "/users/me/avatar": {
+      "put": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Set User Avatar",
+        "operationId": "set_user_avatar_users_me_avatar_put",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_set_user_avatar_users_me_avatar_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetUserAvatarResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/users/avatar/{user_id}/": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get User Avatar",
+        "operationId": "get_user_avatar_users_avatar__user_id___get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUserAvatarResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/{user_id}": {
       "put": {
         "tags": [
@@ -4980,6 +5069,49 @@
         "type": "object",
         "title": "ArticleUpdateRequest"
       },
+      "Body_set_user_avatar_users_me_avatar_put": {
+        "properties": {
+          "avatar": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Avatar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "avatar"
+        ],
+        "title": "Body_set_user_avatar_users_me_avatar_put"
+      },
+      "CancelInitiator": {
+        "type": "string",
+        "enum": [
+          "user",
+          "psychologist",
+          "manager",
+          "system"
+        ],
+        "title": "CancelInitiator"
+      },
+      "CancelRequest": {
+        "properties": {
+          "cancel_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Cancel Reason"
+          },
+          "cancel_initiator": {
+            "$ref": "#/components/schemas/CancelInitiator"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cancel_reason",
+          "cancel_initiator"
+        ],
+        "title": "CancelRequest"
+      },
       "CurrentStatusInfoResponse": {
         "properties": {
           "status": {
@@ -5015,6 +5147,31 @@
           "detail"
         ],
         "title": "ErrorResponse"
+      },
+      "GetUserAvatarResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "GetUserAvatarResponse"
       },
       "HTTPValidationError": {
         "properties": {
@@ -6006,6 +6163,19 @@
         ],
         "title": "ScheduleSlot"
       },
+      "SetUserAvatarResponse": {
+        "properties": {
+          "msg": {
+            "type": "string",
+            "title": "Msg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "msg"
+        ],
+        "title": "SetUserAvatarResponse"
+      },
       "TestType": {
         "type": "string",
         "enum": [
@@ -6379,6 +6549,13 @@
           "type": {
             "type": "string",
             "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
           }
         },
         "type": "object",

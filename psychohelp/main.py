@@ -31,6 +31,7 @@ import uvicorn
 
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
+from fastapi.staticfiles import StaticFiles
 
 log_level = os.getenv("LOG_LEVEL", "DEBUG")
 log_file_path = os.getenv("LOG_FILE")
@@ -61,6 +62,10 @@ def get_application() -> FastAPI:
         version="1.0.0",
     )
     application.include_router(api_router)
+    config.AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+    application.mount(
+        "/media/avatars", StaticFiles(directory=config.AVATAR_DIR), name="avatar"
+    )
 
     application.state.limiter = limiter
     application.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -106,7 +111,6 @@ def get_application() -> FastAPI:
 
 
 app = get_application()
-
 
 def main():
     uvicorn.run(

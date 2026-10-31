@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -28,6 +29,8 @@ class Config:
 
     APP_PORT = int(os.getenv("APP_PORT", "8000"))
     APP_HOST = os.getenv("APP_HOST", "0.0.0.0") # nosec B104
+    IMAGE_DIR = Path(os.getenv("IMAGE_DIR", "./srv/images"))
+    AVATAR_DIR = IMAGE_DIR / "avatars"
     RESET_DB_ON_START = os.getenv("RESET_DB_ON_START", "false").lower() == "true"
     RESET_COOKIE_ON_START = os.getenv("RESET_COOKIE_ON_START", "true").lower() == "true"
     LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG")
