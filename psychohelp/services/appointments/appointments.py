@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
+
 from psychohelp.constants.rbac import RoleCode
 from psychohelp.models.appointments import (
     Appointment,
@@ -15,10 +17,10 @@ from psychohelp.repositories import (
 )
 from psychohelp.repositories.appointments import (
     cancel_appointment_by_id as repo_cancel,
-    cancel_appointment_by_id as repo_cancel_appointment_by_id,
     create_appointment as repo_create_appointment,
     get_appointment_by_id as repo_get_appointment_by_id,
     get_appointments_by_user_id as repo_get_appointments_by_user_id,
+    is_appointment_slot_available,
     reassign_appointment_to_psychologist as repo_reassign_appointment_to_psychologist,
     update_emergency_contact as repo_update_emergency_contact,
 )
@@ -33,6 +35,15 @@ from psychohelp.repositories.users import (
 from psychohelp.services.appointments import (
     exceptions as exc,
 )
+
+
+def _is_slot_conflict(error: IntegrityError) -> bool:
+    original_error = error.orig
+    cause = getattr(original_error, "__cause__", None)
+    constraint_name = getattr(original_error, "constraint_name", None)
+    if constraint_name is None and cause is not None:
+        constraint_name = getattr(cause, "constraint_name", None)
+    return constraint_name == "uq_appointments_psychologist_scheduled_active"
 
 
 def _as_utc(
@@ -112,18 +123,12 @@ async def create_appointment(
     psychologist_id: UUID,
     type: AppointmentType,
     scheduled_time: datetime,
+    duration: int = 60,
     reason: str | None = None,
     remind_time: datetime | None = None,
     venue: str | None = None,
     comment: str | None = None,
-    application_id: UUID | None = None,
 ) -> Appointment:
-    if application_id is not None:
-        raise ValueError(
-            "Записи по заявке создаются через "
-            "POST /applications/{application_id}/confirm"
-        )
-
     now = datetime.now(timezone.utc)
 
     status = AppointmentStatus.awaiting
@@ -172,6 +177,15 @@ async def create_appointment(
             scheduled_time_utc,
         )
 
+    if not await is_appointment_slot_available(
+        psychologist.id,
+        scheduled_time_utc,
+    ):
+        raise exc.AppointmentSlotOccupiedException(
+            psychologist.id,
+            scheduled_time_utc,
+        )
+
     match type:
         case AppointmentType.Offline:
             venue = psychologist.office
@@ -180,31 +194,31 @@ async def create_appointment(
             if venue is None:
                 raise exc.VenueRequiredException()
 
-    appointment = await repo_create_appointment(
-        patient_id=patient_id,
-        psychologist_id=psychologist.id,
-        application_id=None,
-        type=type,
-        reason=reason,
-        status=status,
-        scheduled_time=scheduled_time_utc,
-        remind_time=remind_time_utc,
-        last_change_time=now,
-        venue=venue,
-        comment=comment,
-    )
+    try:
+        appointment = await repo_create_appointment(
+            patient_id=patient_id,
+            psychologist_id=psychologist.id,
+            type=type,
+            duration=duration,
+            reason=reason,
+            status=status,
+            scheduled_time=scheduled_time_utc,
+            remind_time=remind_time_utc,
+            last_change_time=now,
+            venue=venue,
+            comment=comment,
+        )
+    except IntegrityError as error:
+        if _is_slot_conflict(error):
+            raise exc.AppointmentSlotOccupiedException(
+                psychologist.id,
+                scheduled_time_utc,
+            ) from error
+        raise
 
     return await repo_get_appointment_by_id(
         appointment.id,
         patient_id,
-    )
-
-
-async def cancel_appointment_by_id(
-    appointment_id: UUID,
-) -> Appointment:
-    return await repo_cancel_appointment_by_id(
-        appointment_id
     )
 
 
@@ -276,11 +290,13 @@ async def cancel_appointment_by_member(
     appointment_id: UUID,
     user_id: UUID,
     cancel_reason: str,
+    is_emergency: bool = False,
 ) -> Appointment:
     return await repo_cancel(
         appointment_id,
         user_id,
         cancel_reason,
+        is_emergency,
     )
 
 
@@ -352,6 +368,15 @@ async def request_appointment_reschedule(
             scheduled_time_utc,
         )
 
+    if not await is_appointment_slot_available(
+        psychologist.id,
+        scheduled_time_utc,
+    ):
+        raise exc.AppointmentSlotOccupiedException(
+            psychologist.id,
+            scheduled_time_utc,
+        )
+
     return (
         await reschedule_repo.create_reschedule_request(
             appointment_id=appointment_id,
@@ -382,12 +407,15 @@ async def confirm_appointment_reschedule(
     request_id: UUID,
     patient_user_id: UUID,
 ):
-    return (
-        await reschedule_repo.confirm_reschedule_request(
+    try:
+        return await reschedule_repo.confirm_reschedule_request(
             request_id=request_id,
             patient_user_id=patient_user_id,
         )
-    )
+    except IntegrityError as error:
+        if _is_slot_conflict(error):
+            raise exc.AppointmentSlotOccupiedException(None, None) from error
+        raise
 
 
 async def reject_appointment_reschedule(

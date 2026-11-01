@@ -63,9 +63,9 @@ curl -s -b /tmp/ph_cookie.txt \
   -H "Content-Type: application/json" \
   -X POST http://127.0.0.1:8000/appointments/create \
   -d '{
-    "patient_id":"ceec6a26-9ae8-4c41-bb5b-5f84c6f700ce",
     "psychologist_id":"fb1938f5-3cfd-4964-8456-77ee1ce47ef2",
     "type":"Offline",
+    "duration":60,
     "scheduled_time":"2026-04-07T20:11:12.204971Z",
     "reason":"qa check",
     "venue":"office",
@@ -73,7 +73,7 @@ curl -s -b /tmp/ph_cookie.txt \
   }'
 ```
 
-Результат: `HTTP 200`, запись успешно создана.
+Результат: `HTTP 201`, запись успешно создана.
 
 ### 3) Попытка создать запись с датой в прошлом
 ```bash
@@ -81,9 +81,9 @@ curl -s -b /tmp/ph_cookie.txt \
   -H "Content-Type: application/json" \
   -X POST http://127.0.0.1:8000/appointments/create \
   -d '{
-    "patient_id":"ceec6a26-9ae8-4c41-bb5b-5f84c6f700ce",
     "psychologist_id":"fb1938f5-3cfd-4964-8456-77ee1ce47ef2",
     "type":"Offline",
+    "duration":60,
     "scheduled_time":"2026-04-07T16:11:12.238112Z",
     "reason":"qa check past",
     "venue":"office",
@@ -98,5 +98,5 @@ curl -s -b /tmp/ph_cookie.txt \
 - Авторизация по cookie для `POST /appointments/create` работает.
 - Валидация времени (UTC / прошлое) работает.
 
-## Что не закрыто полностью в этом фиксе
-Пункт про связку с `application_id` в рамках полного бизнес-процесса (создание/перевод статусов заявки до `confirm`) не расширялся в этом изменении и требует отдельного e2e-сценария с ролями менеджера/психолога.
+## Текущее поведение
+Студент создаёт запись напрямую на выбранное время. Отдельной сущности заявки и связки через `application_id` больше нет.

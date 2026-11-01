@@ -200,7 +200,11 @@ async def confirm_reschedule_request(
         reschedule_request.status = AppointmentRescheduleStatus.confirmed
         reschedule_request.responded_at = now
 
-        await session.commit()
+        try:
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            raise
         await session.refresh(reschedule_request)
         return reschedule_request
 
@@ -225,6 +229,8 @@ async def cancel_reschedule_request(
         now = datetime.now(timezone.utc)
         appointment.status = AppointmentStatus.cancelled
         appointment.cancel_reason = rejection_comment
+        appointment.cancelled_by = "patient"
+        appointment.emergency_cancellation = False
         appointment.last_change_time = now
 
         reschedule_request.status = AppointmentRescheduleStatus.rejected
