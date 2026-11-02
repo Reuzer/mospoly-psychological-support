@@ -27,6 +27,7 @@ FUTURE_TIME = "2030-01-01T10:00:00Z"
 
 PROTECTED_ENDPOINTS = [
     ("GET", "/users/user", None),
+    ("GET", "/users/me/status", None),
     ("PUT", "/users/me", {}),
     ("PUT", f"/users/{RESOURCE_ID}", {}),
     (

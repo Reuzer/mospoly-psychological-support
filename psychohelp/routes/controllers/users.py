@@ -253,7 +253,7 @@ async def get_my_status(
     if hasattr(user_status, "value"):
         user_status = user_status.value
 
-    return UserStatusResponse.model_validate(user_status)
+    return UserStatusResponse(status=user_status)
 
 @router.put(
     "/me/avatar",

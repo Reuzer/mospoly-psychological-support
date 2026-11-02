@@ -1,3 +1,4 @@
+from enum import Enum
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -5,7 +6,7 @@ import httpx
 import pytest
 
 from psychohelp.constants.rbac import PermissionCode, RoleCode
-from psychohelp.dependencies.auth import get_optional_user
+from psychohelp.dependencies.auth import get_current_user, get_optional_user
 from psychohelp.main import app
 from psychohelp.routes.controllers import users as users_controller
 
@@ -25,6 +26,39 @@ def _user(*role_codes):
             for code in role_codes
         ],
     )
+
+
+class _GroupStatus(Enum):
+    STUDENT = "student"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("current_user", "expected_status"),
+    [
+        pytest.param(_user(RoleCode.USER), None, id="missing-status"),
+        pytest.param(SimpleNamespace(group_status=None), None, id="null-status"),
+        pytest.param(
+            SimpleNamespace(group_status="student"), "student", id="string-status"
+        ),
+        pytest.param(
+            SimpleNamespace(group_status=_GroupStatus.STUDENT),
+            "student",
+            id="enum-status",
+        ),
+    ],
+)
+async def test_get_my_status_returns_status_object(monkeypatch, current_user, expected_status):
+    async def fake_current_user():
+        return current_user
+
+    monkeypatch.setitem(app.dependency_overrides, get_current_user, fake_current_user)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/users/me/status")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": expected_status}
 
 
 async def _get_profile(monkeypatch, target, current_user, permissions=()):
