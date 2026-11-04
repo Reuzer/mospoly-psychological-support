@@ -2732,6 +2732,62 @@
         }
       }
     },
+    "/media/articles/{filename}": {
+      "get": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Get Article Image",
+        "operationId": "get_article_image_media_articles__filename__get",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Фотография статьи в формате WebP",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/image/{filename}": {
       "get": {
         "tags": [
@@ -3133,6 +3189,241 @@
                     "type": "string"
                   },
                   "title": "Response Delete Article Articles  Article Id  Delete"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/articles/{article_id}/image": {
+      "post": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Загрузить или заменить фотографию статьи",
+        "description": "JPEG, PNG или WebP до 10 МБ и 20 млн пикселей, без анимации. Требуется articles.edit.",
+        "operationId": "upload_article_image_articles__article_id__image_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_article_image_articles__article_id__image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые условия операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недопустимые условия операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Превышен допустимый размер файла",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Превышен допустимый размер файла"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Неподдерживаемый тип файла",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Неподдерживаемый тип файла"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервера",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Внутренняя ошибка сервера"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Удалить фотографию статьи",
+        "operationId": "delete_article_image_articles__article_id__image_delete",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleResponse"
                 }
               }
             }
@@ -4838,7 +5129,8 @@
           "image": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 1024
               },
               {
                 "type": "null"
@@ -4997,7 +5289,8 @@
           "image": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 1024
               },
               {
                 "type": "null"
@@ -5083,34 +5376,20 @@
         ],
         "title": "Body_set_user_avatar_users_me_avatar_put"
       },
-      "CancelInitiator": {
-        "type": "string",
-        "enum": [
-          "user",
-          "psychologist",
-          "manager",
-          "system"
-        ],
-        "title": "CancelInitiator"
-      },
-      "CancelRequest": {
+      "Body_upload_article_image_articles__article_id__image_post": {
         "properties": {
-          "cancel_reason": {
+          "image": {
             "type": "string",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Cancel Reason"
-          },
-          "cancel_initiator": {
-            "$ref": "#/components/schemas/CancelInitiator"
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "description": "Фотография статьи (JPEG, PNG или WebP)"
           }
         },
         "type": "object",
         "required": [
-          "cancel_reason",
-          "cancel_initiator"
+          "image"
         ],
-        "title": "CancelRequest"
+        "title": "Body_upload_article_image_articles__article_id__image_post"
       },
       "CurrentStatusInfoResponse": {
         "properties": {
