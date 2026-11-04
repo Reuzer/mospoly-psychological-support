@@ -72,6 +72,7 @@ yarn-error.log
 dist/
 build/
 .claude/
+/srv/images/articles/
 
 # docker.override
 docker-compose.override.yml

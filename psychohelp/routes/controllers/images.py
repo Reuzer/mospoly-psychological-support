@@ -7,12 +7,34 @@ from pathlib import Path
 import os
 
 from psychohelp.schemas.errors import error_responses
+from psychohelp.config.config import config
+from psychohelp.services.article_images import IMAGE_FILENAME
 router = APIRouter(tags=["images"])
 
 IMAGE_DIR = os.getenv("IMAGE_DIR", "/srv/images")
 
 
 EXTENSIONS_WHITE_LIST = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico"}
+
+
+@router.get(
+    "/media/articles/{filename}",
+    response_class=FileResponse,
+    responses={
+        **error_responses(404),
+        200: {
+            "description": "Фотография статьи в формате WebP",
+            "content": {"image/webp": {"schema": {"type": "string", "format": "binary"}}},
+        },
+    },
+)
+async def get_article_image(filename: str):
+    if not IMAGE_FILENAME.fullmatch(filename):
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    file_path = config.ARTICLE_IMAGE_DIR / filename
+    if file_path.is_symlink() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    return FileResponse(file_path, media_type="image/webp", headers={"X-Content-Type-Options": "nosniff"})
 
 
 @router.get(
