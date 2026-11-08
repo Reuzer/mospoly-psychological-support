@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class ArticleCreateRequest(BaseModel):
     slug: str = Field(..., min_length=1, max_length=255)
-    image: Optional[str] = None
+    image: Optional[str] = Field(None, max_length=1024)
     date: Optional[datetime] = None
     author: Optional[str] = Field(None, max_length=255)
     title: str = Field(..., min_length=1, max_length=255)
@@ -17,7 +17,7 @@ class ArticleCreateRequest(BaseModel):
 
 class ArticleUpdateRequest(BaseModel):
     slug: Optional[str] = Field(None, min_length=1, max_length=255)
-    image: Optional[str] = None
+    image: Optional[str] = Field(None, max_length=1024)
     date: Optional[datetime] = None
     author: Optional[str] = Field(None, max_length=255)
     title: Optional[str] = Field(None, min_length=1, max_length=255)

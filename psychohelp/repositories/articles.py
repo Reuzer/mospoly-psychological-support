@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 
 from psychohelp.config.config import get_async_db
 from psychohelp.models.articles import Article
@@ -34,28 +34,38 @@ async def create_article(article_data: dict) -> Article:
         return article
 
 
-async def update_article(article_id: UUID, article_data: dict) -> Article | None:
+async def update_article_with_previous_image(
+    article_id: UUID, article_data: dict,
+) -> tuple[Article | None, str | None]:
     if not article_data:
-        return await get_article_by_id(article_id)
+        return await get_article_by_id(article_id), None
 
     async with get_async_db() as session:
-        stmt = (
-            update(Article)
+        result = await session.execute(
+            select(Article)
             .where(Article.id == article_id)
-            .values(**article_data)
-            .returning(Article)
+            .with_for_update()
         )
-        result = await session.execute(stmt)
-        await session.commit()
-        return result.scalar_one_or_none()
-
-
-async def delete_article(article_id: UUID) -> bool:
-    async with get_async_db() as session:
-        article = await session.get(Article, article_id)
+        article = result.scalar_one_or_none()
         if article is None:
-            return False
+            return None, None
+        previous_image = article.image
+        for field, value in article_data.items():
+            setattr(article, field, value)
+        await session.commit()
+        return article, previous_image
 
+
+async def delete_article_with_previous_image(article_id: UUID) -> tuple[bool, str | None]:
+    async with get_async_db() as session:
+        result = await session.execute(
+            select(Article).where(Article.id == article_id).with_for_update()
+        )
+        article = result.scalar_one_or_none()
+        if article is None:
+            return False, None
+
+        previous_image = article.image
         await session.delete(article)
         await session.commit()
-        return True
+        return True, previous_image

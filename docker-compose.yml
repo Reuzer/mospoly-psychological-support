@@ -13,6 +13,7 @@ services:
       - APP_HOST=${APP_HOST}          # <-- добавьте эту строку
       - APP_PORT=${APP_PORT}          # (порт тоже можно для единообразия)
       - POSTGRES_PORT=${POSTGRES_PORT}
+      - IMAGE_DIR=${IMAGE_DIR:-/srv/images}
       - APP_HOST=${APP_HOST:-0.0.0.0}
       - APP_PORT=${APP_PORT:-8000}
     depends_on:
