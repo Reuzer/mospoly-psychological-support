@@ -19,6 +19,7 @@ class PsyTest(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     title = Column(String(255), nullable=False, comment="Название теста")
     description = Column(Text, nullable=False, comment="Описание теста")
+    image = Column(String(1024), nullable=True, comment="Ссылка на фотографию теста")
 
     type = Column(Enum(TestType), nullable=False, comment="Тип теста: мед или развл")
 
