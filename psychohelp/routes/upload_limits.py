@@ -3,17 +3,17 @@ from fastapi.routing import APIRoute
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.formparsers import MultiPartException
 
-from psychohelp.services.article_images import MAX_IMAGE_SIZE
+from psychohelp.services.content_images import MAX_IMAGE_SIZE
 from psychohelp.services.psy_test_images import MAX_IMAGE_SIZE as MAX_PSY_TEST_IMAGE_SIZE
 
 MAX_IMAGE_REQUEST_SIZE = MAX_IMAGE_SIZE + 64 * 1024  # Файл, заголовки и разделители формы
 MAX_PSY_TEST_IMAGE_REQUEST_SIZE = MAX_PSY_TEST_IMAGE_SIZE + 64 * 1024
 
 
-class ArticleImageUploadRoute(APIRoute):
+class ImageUploadRoute(APIRoute):
     def get_route_handler(self):
         original_handler = super().get_route_handler()
-        if "POST" not in self.methods or not self.path.endswith("/{article_id}/image"):
+        if "POST" not in self.methods or not self.path.endswith("/image"):
             return original_handler
 
         async def limited_handler(request: Request):
