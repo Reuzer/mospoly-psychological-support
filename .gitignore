@@ -73,6 +73,7 @@ dist/
 build/
 .claude/
 /srv/images/articles/
+/srv/images/news/
 
 # docker.override
 docker-compose.override.yml

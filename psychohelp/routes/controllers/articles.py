@@ -9,7 +9,7 @@ from psychohelp.config.logging import get_logger
 from psychohelp.constants.rbac import PermissionCode
 from psychohelp.dependencies.auth import get_current_user
 from psychohelp.models.users import User
-from psychohelp.routes.upload_limits import ArticleImageUploadRoute
+from psychohelp.routes.upload_limits import ImageUploadRoute
 from psychohelp.schemas.articles import (
     ArticleCreateRequest,
     ArticleResponse,
@@ -21,7 +21,7 @@ from psychohelp.services.rbac.permissions import require_permission
 
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/articles", tags=["articles"], route_class=ArticleImageUploadRoute)
+router = APIRouter(prefix="/articles", tags=["articles"], route_class=ImageUploadRoute)
 
 
 def _image_root_path(image: str | None, root_path: str, *, add: bool) -> str | None:
