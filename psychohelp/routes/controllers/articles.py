@@ -16,7 +16,8 @@ from psychohelp.schemas.articles import (
     ArticleUpdateRequest,
 )
 from psychohelp.services import articles as articles_service
-from psychohelp.services.article_images import IMAGE_FILENAME, IMAGE_URL_PREFIX
+from psychohelp.services.article_images import IMAGE_URL_PREFIX
+from psychohelp.services.content_images import content_image_root_path
 from psychohelp.services.rbac.permissions import require_permission
 
 
@@ -24,27 +25,24 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/articles", tags=["articles"], route_class=ImageUploadRoute)
 
 
-def _image_root_path(image: str | None, root_path: str, *, add: bool) -> str | None:
-    """Учитываем префикс API для загруженных фото, сохраняя старые и внешние ссылки"""
-    prefix = IMAGE_URL_PREFIX if add else root_path + IMAGE_URL_PREFIX
-    if image and image.startswith(prefix) and IMAGE_FILENAME.fullmatch(image.removeprefix(prefix)):
-        return root_path + image if add else image.removeprefix(root_path)
-    return image
-
-
 def _article_response(article, request: Request | None):
     root_path = request.scope.get("root_path", "").rstrip("/") if request else ""
     if not root_path:
         return article
     response = ArticleResponse.model_validate(article)
-    response.image = _image_root_path(response.image, root_path, add=True)
+    response.image = content_image_root_path(
+        response.image, root_path, url_prefix=IMAGE_URL_PREFIX, add=True,
+    )
     return response
 
 
 def _article_data(data: dict, request: Request | None) -> dict:
     root_path = request.scope.get("root_path", "").rstrip("/") if request else ""
-    if root_path and "image" in data:
-        data["image"] = _image_root_path(data["image"], root_path, add=False)
+    if "image" in data:
+        data["image"] = content_image_root_path(
+            data["image"], root_path, url_prefix=IMAGE_URL_PREFIX, add=False,
+            origin=str(request.base_url) if request else None,
+        )
     return data
 
 

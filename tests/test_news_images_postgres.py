@@ -73,8 +73,12 @@ async def test_persistent_photo_lifecycle(database):
     second = await news.upload_news_image(news_id, photo_upload())
     assert second.image != first_url
     assert [path.name for path in config.NEWS_IMAGE_DIR.iterdir()] == [second.image.rsplit("/", 1)[1]]
+    image_with_query = second.image + "?v=1#preview"
+    await news.update_news(news_id, {"image": image_with_query})
+    assert (await repository.get_news_by_id(news_id)).image == image_with_query
+    assert [path.name for path in config.NEWS_IMAGE_DIR.iterdir()] == [second.image.rsplit("/", 1)[1]]
     changed = await news.update_news(news_id, {"title": "Новый заголовок"})
-    assert changed.image == second.image
+    assert changed.image == image_with_query
     assert (await news.update_news(news_id, {"image": None})).image is None
     assert not list(config.NEWS_IMAGE_DIR.iterdir())
     assert (await repository.get_news_by_id(news_id)).image is None
