@@ -5,7 +5,9 @@ from starlette.concurrency import run_in_threadpool
 
 from psychohelp.models.news import News
 from psychohelp.repositories import news as news_repo
+from psychohelp.services.content_images import content_image_filename
 from psychohelp.services.news_images import (
+    IMAGE_URL_PREFIX,
     MAX_IMAGE_SIZE,
     remove_news_image,
     save_news_image,
@@ -26,7 +28,12 @@ async def create_news(news_data: dict) -> News:
 
 async def update_news(news_id: UUID, news_data: dict) -> News | None:
     news_item, previous_image = await news_repo.update_news_with_previous_image(news_id, news_data)
-    if news_item is not None and "image" in news_data and previous_image != news_item.image:
+    if (
+        news_item is not None
+        and "image" in news_data
+        and content_image_filename(previous_image, url_prefix=IMAGE_URL_PREFIX)
+        != content_image_filename(news_item.image, url_prefix=IMAGE_URL_PREFIX)
+    ):
         await run_in_threadpool(remove_news_image, news_id, previous_image)
     return news_item
 

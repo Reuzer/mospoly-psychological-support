@@ -6,10 +6,12 @@ from starlette.concurrency import run_in_threadpool
 from psychohelp.models.articles import Article
 from psychohelp.repositories import articles as repo
 from psychohelp.services.article_images import (
+    IMAGE_URL_PREFIX,
     MAX_IMAGE_SIZE,
     remove_article_image,
     save_article_image,
 )
+from psychohelp.services.content_images import content_image_filename
 
 
 async def get_articles(skip: int = 0, take: int = 100) -> list[Article]:
@@ -26,7 +28,12 @@ async def create_article(article_data: dict) -> Article:
 
 async def update_article(article_id: UUID, article_data: dict) -> Article | None:
     article, previous_image = await repo.update_article_with_previous_image(article_id, article_data)
-    if article is not None and "image" in article_data and previous_image != article.image:
+    if (
+        article is not None
+        and "image" in article_data
+        and content_image_filename(previous_image, url_prefix=IMAGE_URL_PREFIX)
+        != content_image_filename(article.image, url_prefix=IMAGE_URL_PREFIX)
+    ):
         await run_in_threadpool(remove_article_image, article_id, previous_image)
     return article
 

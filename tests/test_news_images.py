@@ -368,6 +368,60 @@ async def test_photo_urls_work_behind_api_prefix(client, news_state):
         assert not stored_files()
 
 
+@pytest.mark.parametrize("root_path", ["", "/api"])
+@pytest.mark.parametrize("reference", ["absolute", "query", "absolute-query-fragment", "protocol-relative", "default-port"])
+async def test_equivalent_photo_urls_preserve_file_and_allow_cleanup(client, news_state, root_path, reference):
+    news_id = news_state[0].id
+    suffix = "?v=1#preview" if "query" in reference else ""
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, root_path=root_path), base_url="http://test" + root_path,
+    ) as api:
+        uploaded = (await upload(api, news_id)).json()["image"]
+        local_url = uploaded + suffix
+        if reference.startswith("absolute"):
+            image_url = "http://test" + local_url
+        elif reference == "protocol-relative":
+            image_url = "//test" + local_url
+        elif reference == "default-port":
+            image_url = "http://TEST:80" + local_url
+        else:
+            image_url = local_url
+
+        changed = await api.put(f"/news/{news_id}", json={"image": image_url})
+        assert changed.status_code == 200, changed.text
+        assert changed.json()["image"] == local_url
+        assert news_state[1][news_id].image == local_url.removeprefix(root_path)
+        assert (await api.get("http://test" + local_url)).status_code == 200
+        echoed = await api.put(f"/news/{news_id}", json={"image": changed.json()["image"]})
+        assert echoed.json()["image"] == local_url
+        assert (await api.get(f"/news/{news_id}")).json()["image"] == local_url
+        assert len(stored_files()) == 1
+
+        # Замена должна убрать прежний файл и после сохранения ссылки с query/fragment.
+        replaced = await upload(api, news_id)
+        assert replaced.status_code == 200, replaced.text
+        assert (await api.get("http://test" + uploaded)).status_code == 404
+        assert len(stored_files()) == 1
+        current_url = replaced.json()["image"]
+        changed = await api.put(f"/news/{news_id}", json={"image": "http://test" + current_url + "?v=2"})
+        assert changed.status_code == 200, changed.text
+        assert (await api.delete(f"/news/{news_id}/image")).status_code == 200
+        assert not stored_files()
+        assert (await api.get("http://test" + current_url)).status_code == 404
+
+
+@pytest.mark.parametrize("origin", ["https://example.org", "//example.org", "https://test", "http://test:8000"])
+async def test_external_photo_with_same_path_is_not_treated_as_local(client, news_state, origin):
+    news_id = news_state[0].id
+    uploaded = (await upload(client, news_id)).json()["image"]
+    external = origin + uploaded + "?v=1#preview"
+    changed = await client.put(f"/news/{news_id}", json={"image": external})
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["image"] == external
+    assert (await client.get(uploaded)).status_code == 404
+    assert not stored_files()
+
+
 @pytest.mark.parametrize("content_length,status", [
     (str(MAX_IMAGE_REQUEST_SIZE + 1), 413), ("-1", 400), ("invalid", 400),
     ("9" * 5000, 413),
