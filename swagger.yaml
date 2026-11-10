@@ -2788,6 +2788,62 @@
         }
       }
     },
+    "/media/news/{filename}": {
+      "get": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Get News Image",
+        "operationId": "get_news_image_media_news__filename__get",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Фотография новости в формате WebP",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/image/{filename}": {
       "get": {
         "tags": [
@@ -3798,6 +3854,241 @@
                     "type": "string"
                   },
                   "title": "Response Delete News News  News Id  Delete"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/news/{news_id}/image": {
+      "post": {
+        "tags": [
+          "news"
+        ],
+        "summary": "Загрузить или заменить фотографию новости",
+        "description": "JPG/JPEG, PNG или WebP до 10 МиБ и 20 млн пикселей, без анимации. Только для администраторов.",
+        "operationId": "upload_news_image_news__news_id__image_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "news_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "News Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_news_image_news__news_id__image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые условия операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недопустимые условия операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Превышен допустимый размер файла",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Превышен допустимый размер файла"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Неподдерживаемый тип файла",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Неподдерживаемый тип файла"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервера",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Внутренняя ошибка сервера"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "news"
+        ],
+        "summary": "Удалить фотографию новости",
+        "operationId": "delete_news_image_news__news_id__image_delete",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "news_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "News Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewsResponse"
                 }
               }
             }
@@ -5390,6 +5681,21 @@
           "image"
         ],
         "title": "Body_upload_article_image_articles__article_id__image_post"
+      },
+      "Body_upload_news_image_news__news_id__image_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "description": "Фотография новости (JPG/JPEG, PNG или WebP)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_upload_news_image_news__news_id__image_post"
       },
       "CurrentStatusInfoResponse": {
         "properties": {

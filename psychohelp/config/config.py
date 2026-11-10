@@ -32,6 +32,7 @@ class Config:
     IMAGE_DIR = Path(os.getenv("IMAGE_DIR", "./srv/images"))
     AVATAR_DIR = IMAGE_DIR / "avatars"
     ARTICLE_IMAGE_DIR = IMAGE_DIR / "articles"
+    NEWS_IMAGE_DIR = IMAGE_DIR / "news"
     RESET_DB_ON_START = os.getenv("RESET_DB_ON_START", "false").lower() == "true"
     RESET_COOKIE_ON_START = os.getenv("RESET_COOKIE_ON_START", "true").lower() == "true"
     LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG")

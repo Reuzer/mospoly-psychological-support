@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 
 from psychohelp.config.config import get_async_db
 from psychohelp.models.news import News
@@ -35,27 +35,47 @@ async def create_news(news_data: dict) -> News:
 
 
 async def update_news(news_id: UUID, news_data: dict) -> News | None:
+    news_item, _ = await update_news_with_previous_image(news_id, news_data)
+    return news_item
+
+
+async def update_news_with_previous_image(
+    news_id: UUID, news_data: dict,
+) -> tuple[News | None, str | None]:
     if not news_data:
-        return await get_news_by_id(news_id)
+        return await get_news_by_id(news_id), None
 
     async with get_async_db() as session:
-        stmt = (
-            update(News)
+        result = await session.execute(
+            select(News)
             .where(News.id == news_id)
-            .values(**news_data)
-            .returning(News)
+            .with_for_update()
         )
-        result = await session.execute(stmt)
+        news_item = result.scalar_one_or_none()
+        if news_item is None:
+            return None, None
+        previous_image = news_item.image
+        for field, value in news_data.items():
+            setattr(news_item, field, value)
         await session.commit()
-        return result.scalar_one_or_none()
+        return news_item, previous_image
 
 
 async def delete_news(news_id: UUID) -> bool:
-    async with get_async_db() as session:
-        news_item = await session.get(News, news_id)
-        if news_item is None:
-            return False
+    deleted, _ = await delete_news_with_previous_image(news_id)
+    return deleted
 
+
+async def delete_news_with_previous_image(news_id: UUID) -> tuple[bool, str | None]:
+    async with get_async_db() as session:
+        result = await session.execute(
+            select(News).where(News.id == news_id).with_for_update()
+        )
+        news_item = result.scalar_one_or_none()
+        if news_item is None:
+            return False, None
+
+        previous_image = news_item.image
         await session.delete(news_item)
         await session.commit()
-        return True
+        return True, previous_image
