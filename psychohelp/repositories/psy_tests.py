@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 
 from psychohelp.config.config import get_async_db
 from psychohelp.models.psy_tests import PsyTest
@@ -34,25 +34,38 @@ async def create_psy_test(psy_test_data: dict) -> PsyTest:
         return psy_test_item
 
 
-async def update_psy_test(psy_test_id: UUID, psy_test_data: dict) -> PsyTest | None:
+async def update_psy_test_with_previous_image(
+    psy_test_id: UUID, psy_test_data: dict,
+) -> tuple[PsyTest | None, str | None]:
+    if not psy_test_data:
+        return await get_psy_test_by_id(psy_test_id), None
+
     async with get_async_db() as session:
-        stmt = (
-            update(PsyTest)
+        result = await session.execute(
+            select(PsyTest)
             .where(PsyTest.id == psy_test_id)
-            .values(**psy_test_data)
-            .returning(PsyTest)
+            .with_for_update()
         )
-        result = await session.execute(stmt)
-        await session.commit()
-        return result.scalar_one_or_none()
-
-
-async def delete_psy_test(psy_test_id: UUID) -> bool:
-    async with get_async_db() as session:
-        psy_test_item = await session.get(PsyTest, psy_test_id)
+        psy_test_item = result.scalar_one_or_none()
         if psy_test_item is None:
-            return False
+            return None, None
+        previous_image = psy_test_item.image
+        for field, value in psy_test_data.items():
+            setattr(psy_test_item, field, value)
+        await session.commit()
+        return psy_test_item, previous_image
 
+
+async def delete_psy_test_with_previous_image(psy_test_id: UUID) -> tuple[bool, str | None]:
+    async with get_async_db() as session:
+        result = await session.execute(
+            select(PsyTest).where(PsyTest.id == psy_test_id).with_for_update()
+        )
+        psy_test_item = result.scalar_one_or_none()
+        if psy_test_item is None:
+            return False, None
+
+        previous_image = psy_test_item.image
         await session.delete(psy_test_item)
         await session.commit()
-        return True
+        return True, previous_image
