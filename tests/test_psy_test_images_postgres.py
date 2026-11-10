@@ -53,7 +53,7 @@ async def database(monkeypatch, tmp_path):
                 yield session
 
         monkeypatch.setattr(repository, "get_async_db", get_db)
-        monkeypatch.setattr(config, "ARTICLE_IMAGE_DIR", tmp_path / "photos")
+        monkeypatch.setattr(config, "PSY_TEST_IMAGE_DIR", tmp_path / "photos")
         psy_test = await repository.create_psy_test(
             {"title": "Тест", "description": "Описание", "type": TestType.MEDICAL},
         )
