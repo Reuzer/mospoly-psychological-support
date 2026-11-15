@@ -74,6 +74,7 @@ build/
 .claude/
 /srv/images/articles/
 /srv/images/psy-tests/
+/srv/images/news/
 
 # docker.override
 docker-compose.override.yml

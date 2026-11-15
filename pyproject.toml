@@ -15,8 +15,8 @@ dependencies = [
     "asyncpg==0.30.0",
     "pyjwt==2.15.1",
     "pydantic[email]>=2.0.0",
-    # Security floor for the transitive email-validator dependency.
-    "dnspython>=2.9.0,<3",
+    # Security floor for email-validator's dependency (CVE-2026-128089).
+    "dnspython>=2.9.2,<3",
     "pydantic-extra-types",
     "phonenumbers",
     "httpx",
