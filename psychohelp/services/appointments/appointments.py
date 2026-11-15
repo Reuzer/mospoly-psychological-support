@@ -224,9 +224,11 @@ async def create_appointment(
 
 async def get_appointments_by_user_id(
     user_id: UUID,
+    skip: int = 0,
+    take: int = 100,
 ) -> list[Appointment]:
     return await repo_get_appointments_by_user_id(
-        user_id
+        user_id, skip=skip, take=take
     )
 
 
@@ -276,13 +278,15 @@ async def reassign_appointment_to_self(
 
 async def get_appointments_by_token(
     token: str,
+    skip: int = 0,
+    take: int = 100,
 ) -> list[Appointment]:
     user_id = get_user_id_from_token(
         token
     )
 
     return await get_appointments_by_user_id(
-        user_id
+        user_id, skip=skip, take=take
     )
 
 

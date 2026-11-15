@@ -1,9 +1,11 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
 )
 from pydantic import BaseModel
 
@@ -78,7 +80,10 @@ async def get_appointments(
     current_user: User = Depends(
         get_optional_user
     ),
+    skip: Annotated[int, Query(ge=0, description="Количество записей для пропуска")] = 0,
+    take: Annotated[int, Query(gt=0, le=100, description="Количество записей для получения")] = 100,
 ) -> list[AppointmentBase]:
+    """Возвращает страницу записей по убыванию времени приёма."""
     if user_id is None:
         if current_user is None:
             raise HTTPException(
@@ -87,7 +92,7 @@ async def get_appointments(
             )
 
         return await get_appointments_by_user_id(
-            current_user.id
+            current_user.id, skip=skip, take=take
         )
 
     if current_user is None:
@@ -113,7 +118,7 @@ async def get_appointments(
         )
 
     return await get_appointments_by_user_id(
-        user_id
+        user_id, skip=skip, take=take
     )
 
 
