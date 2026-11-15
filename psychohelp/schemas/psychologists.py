@@ -28,7 +28,6 @@ class PsychologistCreateRequest(BaseModel):
     office: str
     education: str
     short_description: str
-    photo: str | None = None
 
 
 class PsychologistResponse(BaseModel):

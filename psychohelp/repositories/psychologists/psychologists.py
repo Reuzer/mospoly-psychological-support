@@ -74,7 +74,10 @@ async def create_psychologist(user_id: UUID, psychologist_data: dict) -> Psychol
             if existing_psychologist_result.scalar_one_or_none() is not None:
                 raise PsychologistAlreadyExistsException(user_id)
             
-            psychologist = Psychologist(user_id=user_id, **psychologist_data)
+            psychologist = Psychologist(
+                user_id=user_id,
+                **{**psychologist_data, "photo": user.avatar},
+            )
             session.add(psychologist)
             
             psychologist_role_result = await session.execute(
