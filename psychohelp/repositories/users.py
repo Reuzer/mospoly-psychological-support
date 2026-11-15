@@ -1,5 +1,6 @@
 from psychohelp.constants.rbac import RoleCode
 from psychohelp.models.users import User
+from psychohelp.models.psychologists import Psychologist
 from psychohelp.models.roles import Role
 from psychohelp.config.config import get_async_db
 from psychohelp.repositories import get_user_id_from_token, UUID
@@ -124,6 +125,11 @@ async def set_avatar(avatar_file_name, user):
             )
 
             await session.execute(stmt)
+            await session.execute(
+                update(Psychologist)
+                .where(Psychologist.user_id == user_id)
+                .values(photo=avatar_file_name)
+            )
             await session.commit()
 
         except SQLAlchemyError as e:
