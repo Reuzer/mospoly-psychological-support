@@ -185,7 +185,9 @@ async def cancel_appointment_by_id(
         return appointment
 
 
-async def get_appointments_by_user_id(user_id: UUID) -> list[Appointment]:
+async def get_appointments_by_user_id(
+    user_id: UUID, skip: int = 0, take: int = 100
+) -> list[Appointment]:
     async with get_async_db() as session:
         query = (
             select(Appointment)
@@ -198,6 +200,9 @@ async def get_appointments_by_user_id(user_id: UUID) -> list[Appointment]:
                 (Appointment.patient_id == user_id) | 
                 (Psychologist.user_id == user_id)
             )
+            .order_by(Appointment.scheduled_time.desc(), Appointment.id.desc())
+            .offset(skip)
+            .limit(take)
         )
         
         result = await session.execute(query)

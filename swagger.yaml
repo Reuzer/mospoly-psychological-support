@@ -868,6 +868,7 @@
           "appointments"
         ],
         "summary": "Get Appointments",
+        "description": "Возвращает страницу записей по убыванию времени приёма.",
         "operationId": "get_appointments_appointments__get",
         "security": [
           {
@@ -891,6 +892,33 @@
               ],
               "title": "User Id"
             }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Количество записей для пропуска",
+              "default": 0,
+              "title": "Skip"
+            },
+            "description": "Количество записей для пропуска"
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "exclusiveMinimum": 0,
+              "description": "Количество записей для получения",
+              "default": 100,
+              "title": "Take"
+            },
+            "description": "Количество записей для получения"
           }
         ],
         "responses": {
