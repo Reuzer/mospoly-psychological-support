@@ -10,7 +10,6 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=${POSTGRES_HOST}
-      - APP_HOST=${APP_HOST}          # <-- добавьте эту строку
       - APP_PORT=${APP_PORT}          # (порт тоже можно для единообразия)
       - POSTGRES_PORT=${POSTGRES_PORT}
       - APP_HOST=${APP_HOST:-0.0.0.0}
