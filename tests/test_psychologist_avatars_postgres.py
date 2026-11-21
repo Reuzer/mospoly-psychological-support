@@ -4,11 +4,15 @@ The tests use only a disposable database supplied explicitly through
 PSYCHOHELP_TEST_DATABASE_URL.
 """
 
+import importlib.util
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -128,3 +132,40 @@ async def test_create_psychologist_copies_user_avatar(database, avatar):
             select(Psychologist).where(Psychologist.user_id == user.id)
         )
         assert stored.photo == avatar
+
+
+@pytest.mark.parametrize(
+    ("avatar", "expected_photo"), [(None, "old.webp"), ("avatar.webp", "avatar.webp")]
+)
+async def test_migration_preserves_existing_photo_when_user_has_no_avatar(
+    database, avatar, expected_photo
+):
+    migration_path = (
+        Path(__file__).parents[1]
+        / "alembic/versions/e4f5a6b7c8d9_sync_psychologist_photos_with_user_avatars.py"
+    )
+    spec = importlib.util.spec_from_file_location("psychologist_avatar_migration", migration_path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    def upgrade(connection):
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+    async with database() as session:
+        user = make_user(avatar=avatar)
+        session.add(user)
+        await session.flush()
+        psychologist = Psychologist(user_id=user.id, photo="old.webp", **psychologist_data())
+        session.add(psychologist)
+        await session.commit()
+
+        connection = await session.connection()
+        await connection.run_sync(upgrade)
+        await session.commit()
+
+    async with database() as session:
+        stored_photo = await session.scalar(
+            select(Psychologist.photo).where(Psychologist.id == psychologist.id)
+        )
+        assert stored_photo == expected_photo

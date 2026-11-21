@@ -23,6 +23,7 @@ def upgrade() -> None:
         SET photo = users.avatar
         FROM users
         WHERE psychologists.user_id = users.id
+          AND users.avatar IS NOT NULL
         """
     )
 
