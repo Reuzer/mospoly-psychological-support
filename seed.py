@@ -35,7 +35,6 @@ async def seed_db():
         "office": "Онлайн",
         "education": "СПбГУ",
         "short_description": "Эмпатичный и поддерживающий специалист",
-        "photo": None
     }
     
     created_psychologist = await create_psychologist(

@@ -6649,17 +6649,6 @@
           "short_description": {
             "type": "string",
             "title": "Short Description"
-          },
-          "photo": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Photo"
           }
         },
         "type": "object",
