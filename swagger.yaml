@@ -5191,6 +5191,262 @@
           }
         }
       }
+    },
+    "/medical-records/": {
+      "get": {
+        "tags": [
+          "medical-records"
+        ],
+        "summary": "Get Medical Record List",
+        "description": "Возвращает по одной карточке на пользователя с ролью обучающегося.",
+        "operationId": "get_medical_record_list_medical_records__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MedicalRecordPreview"
+                  },
+                  "type": "array",
+                  "title": "Response Get Medical Record List Medical Records  Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/medical-records/{user_id}": {
+      "get": {
+        "tags": [
+          "medical-records"
+        ],
+        "summary": "Get Medical Record",
+        "description": "Возвращает профиль пациента, общую заметку и историю завершённых приёмов.",
+        "operationId": "get_medical_record_medical_records__user_id__get",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MedicalRecordResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medical-records/{user_id}/note": {
+      "patch": {
+        "tags": [
+          "medical-records"
+        ],
+        "summary": "Update Medical Record Note",
+        "description": "Сохраняет общую заметку, если её версия не изменилась с момента чтения.",
+        "operationId": "update_medical_record_note_medical_records__user_id__note_patch",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalRecordNoteUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MedicalRecordNoteResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6125,6 +6381,318 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "MedicalAppointment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "patient": {
+            "$ref": "#/components/schemas/UserFullResponse"
+          },
+          "psychologist": {
+            "$ref": "#/components/schemas/PsychologistFullResponse"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AppointmentType"
+          },
+          "duration": {
+            "type": "integer",
+            "enum": [
+              60,
+              90
+            ],
+            "title": "Duration",
+            "default": 60
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AppointmentStatus"
+          },
+          "scheduled_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scheduled Time"
+          },
+          "remind_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remind Time"
+          },
+          "last_change_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Change Time"
+          },
+          "venue": {
+            "type": "string",
+            "title": "Venue"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
+          "cancelled_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled By"
+          },
+          "emergency_cancellation": {
+            "type": "boolean",
+            "title": "Emergency Cancellation",
+            "default": false
+          },
+          "patient_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Comment"
+          },
+          "conclusion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conclusion"
+          },
+          "emergency_contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emergency Contact"
+          },
+          "psychologist_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Psychologist Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "patient",
+          "psychologist",
+          "type",
+          "status",
+          "scheduled_time",
+          "last_change_time",
+          "venue"
+        ],
+        "title": "MedicalAppointment",
+        "description": "Приём в медкарте, включая внутренний комментарий психологам."
+      },
+      "MedicalRecordNoteResponse": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "note_version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Note Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "note",
+          "note_version"
+        ],
+        "title": "MedicalRecordNoteResponse"
+      },
+      "MedicalRecordNoteUpdateRequest": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "note_version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Note Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "note",
+          "note_version"
+        ],
+        "title": "MedicalRecordNoteUpdateRequest"
+      },
+      "MedicalRecordPreview": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user",
+          "note"
+        ],
+        "title": "MedicalRecordPreview"
+      },
+      "MedicalRecordResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "note_version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Note Version"
+          },
+          "next_appointment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MedicalAppointment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completed_appointments": {
+            "items": {
+              "$ref": "#/components/schemas/MedicalAppointment"
+            },
+            "type": "array",
+            "title": "Completed Appointments"
+          },
+          "tests_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Tests Count"
+          },
+          "surveys_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Surveys Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user",
+          "note",
+          "note_version",
+          "next_appointment",
+          "completed_appointments",
+          "tests_count",
+          "surveys_count"
+        ],
+        "title": "MedicalRecordResponse"
       },
       "MessageResponse": {
         "properties": {

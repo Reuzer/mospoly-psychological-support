@@ -1,6 +1,6 @@
 from psychohelp.config.config import Base
 
-from sqlalchemy import Column, String
+from sqlalchemy import CheckConstraint, Column, Integer, String, Text, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -9,6 +9,9 @@ import uuid
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("note_version >= 0", name="ck_users_note_version_nonnegative"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     first_name = Column(String(50), nullable=False)
@@ -20,6 +23,12 @@ class User(Base):
     password = Column(String(64), nullable=False)
     study_group = Column(String(50), nullable=True)
     avatar = Column(String(100), nullable=True)
+    # Общая заметка психологов не включается в схемы профиля пользователя.
+    note = Column(Text, nullable=True, comment="Общая заметка психологов о пациенте")
+    note_version = Column(
+        Integer, nullable=False, default=0, server_default=text("0"),
+        comment="Версия общей заметки психологов",
+    )
 
     roles = relationship("Role", secondary="users_roles", back_populates="users")
     appointments_as_patient = relationship(
