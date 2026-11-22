@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:   # ручной запуск из вкладки Actions
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,16 +14,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
-    # -ll: падать только на находках уровня medium и выше
-    - name: Bandit (SAST)
-      run: uvx bandit -r psychohelp -ll
+      - name: Set up Python
+        run: uv python install
 
-    - name: Dependency audit (pip-audit)
-      run: |
-        uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt
-        uvx pip-audit --disable-pip --no-deps -r requirements.txt
+      - name: Sync deps (для lock-файла)
+        run: uv sync --frozen --no-dev
+
+      - name: Bandit (SAST)
+        run: uv run --no-project --with bandit bandit -r psychohelp -ll
+
+      - name: Dependency audit (pip-audit)
+        run: |
+          uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt
+          uvx pip-audit --disable-pip -r requirements.txt
+
+      - name: Gitleaks (Secret Scanning)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
