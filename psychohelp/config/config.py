@@ -69,8 +69,12 @@ async def get_async_db():
 
 
 async_engine = create_async_engine(
-    config.DATABASE_URL, future=True, echo=False, hide_parameters=True,
+    config.DATABASE_URL,
+    future=True,
+    echo=True,
+    hide_parameters=True
 )
+
 async_session = sessionmaker(
     bind=async_engine, class_=AsyncSession, expire_on_commit=False
 )

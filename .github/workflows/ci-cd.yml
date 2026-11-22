@@ -1,0 +1,286 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+
+jobs:
+
+  # ==========================================
+  # 1. BUILD
+  # Проверяем, что production Docker image
+  # успешно собирается.
+  # ==========================================
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build production Docker image
+        run: |
+          docker build \
+            -f Dockerfile.prod \
+            -t psychohelp-backend:ci .
+
+
+  # ==========================================
+  # 2. TEST
+  # Запускаем pytest с PostgreSQL,
+  # включая integration tests.
+  # ==========================================
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+
+      # Переменные для PostgreSQL integration tests.
+      # В проекте используются оба названия.
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
+      PSYCHOHELP_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Run tests
+        run: uv run pytest -q -ra
+
+
+  # ==========================================
+  # 3. SECURITY
+  # SAST + аудит production dependencies.
+  # ==========================================
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        run: uv python install 3.13
+
+      # Bandit: падаем на находках уровня medium и выше.
+      - name: Bandit (SAST)
+        run: uvx bandit -r psychohelp -ll
+
+      # Экспортируем production dependencies из uv.lock.
+      # Optional extra dev по умолчанию не включается.
+      - name: Export production dependencies
+        run: |
+          uv export \
+            --frozen \
+            --no-hashes \
+            --no-emit-project \
+            -o requirements.txt
+
+      # Проверяем зависимости без повторного разрешения версий.
+      # uv.lock уже содержит зафиксированные версии
+      # прямых и транзитивных зависимостей.
+      - name: Dependency audit (pip-audit)
+        run: |
+          uvx pip-audit \
+            --disable-pip \
+            --no-deps \
+            -r requirements.txt
+
+
+  # ======================================
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Дожидаемся успешного завершения всех проверок.
+    needs:
+      - build
+      - test
+      - security
+
+    # Deploy разрешён только при push или ручном
+    # запуске из main/develop.
+    if: >-
+      ${{
+        (github.event_name == 'push' ||
+         github.event_name == 'workflow_dispatch') &&
+        (github.ref == 'refs/heads/main' ||
+         github.ref == 'refs/heads/develop')
+      }}
+
+    # Сериализуем только деплои, а не весь pipeline.
+    # У репозитория один WireGuard peer.
+    concurrency:
+      group: deploy-${{ github.repository }}
+      queue: max
+      cancel-in-progress: false
+
+    # GitHub Environments:
+    # main    -> production
+    # develop -> development
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+
+    steps:
+
+      # ----------------------------------------
+      # Определяем целевой стенд
+      # ----------------------------------------
+
+      - name: Определить стенд
+        id: stand
+        run: |
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            echo "name=prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+
+      # ----------------------------------------
+      # Поднимаем туннель WireGuard
+      # ----------------------------------------
+
+      - name: Поднять туннель WireGuard
+        env:
+          WG_CONFIG: ${{ secrets.WG_CONFIG }}
+        run: |
+          if [ -z "$WG_CONFIG" ]; then
+            echo "WG_CONFIG secret is empty" >&2
+            exit 1
+          fi
+
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq wireguard-tools netcat-openbsd
+
+          sudo install -d -m 700 /etc/wireguard
+          sudo install -m 600 /dev/null /etc/wireguard/wg0.conf
+
+          printf '%s\n' "$WG_CONFIG" | sudo tee /etc/wireguard/wg0.conf >/dev/null
+
+          sudo wg-quick up wg0
+
+          # wg show не выводит приватный ключ.
+          sudo wg show wg0
+
+
+      # ----------------------------------------
+      # Проверяем доступность SSH через туннель
+      # ----------------------------------------
+
+      - name: Дождаться SSH через туннель
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          timeout 60 bash -c \
+            'until nc -z -w2 "$DEPLOY_HOST" 22; do sleep 2; done' || {
+              echo "Порт 22 недоступен через туннель за 60 секунд" >&2
+              sudo wg show wg0
+              exit 1
+            }
+
+
+      # ----------------------------------------
+      # Подготавливаем SSH
+      # ----------------------------------------
+
+      - name: Подготовить SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+
+      # ----------------------------------------
+      # Выполняем деплой
+      # ----------------------------------------
+
+      - name: Деплой
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_STAND: ${{ steps.stand.outputs.name }}
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "set -e
+             cd /opt/psycho/$DEPLOY_STAND/backend
+             git fetch --prune origin
+             git reset --hard origin/$DEPLOY_BRANCH
+             ./deploy/deploy.sh"
+
+
+      # ----------------------------------------
+      # Всегда опускаем WireGuard
+      # Даже если предыдущий шаг завершился ошибкой.
+      # ----------------------------------------
+
+      - name: Опустить туннель
+        if: always()
+        run: sudo wg-quick down wg0 || true
