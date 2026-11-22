@@ -56,7 +56,7 @@ class ImageUploadRoute(APIRoute):
 class PsyTestImageUploadRoute(APIRoute):
     def get_route_handler(self):
         original_handler = super().get_route_handler()
-        if "POST" not in self.methods or not self.path.endswith("/{psy_test_id}/image"):
+        if "POST" not in self.methods or not self.path.endswith("/image"):
             return original_handler
 
         async def limited_handler(request: Request):

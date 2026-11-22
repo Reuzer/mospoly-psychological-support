@@ -4501,6 +4501,19 @@
               }
             }
           },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -4609,7 +4622,7 @@
           "psy-tests"
         ],
         "summary": "Загрузить или заменить фотографию теста",
-        "description": "JPEG, PNG или WebP до 10 МБ и 20 млн пикселей, без анимации. Требуется tests.edit.",
+        "description": "JPEG, PNG или WebP до 10 МБ и 20 млн пикселей, без анимации.",
         "operationId": "upload_psy_test_image_psy_tests__psy_test_id__image_post",
         "security": [
           {
@@ -4831,6 +4844,834 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/psy-tests/{psy_test_id}/questions": {
+      "get": {
+        "tags": [
+          "psy-tests"
+        ],
+        "summary": "Get Medical Test Questions",
+        "description": "Показывает психологу или администратору вопросы в порядке прохождения.",
+        "operationId": "get_medical_test_questions_psy_tests__psy_test_id__questions_get",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "psy_test_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Psy Test Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PsyTestQuestionResponse"
+                  },
+                  "title": "Response Get Medical Test Questions Psy Tests  Psy Test Id  Questions Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "psy-tests"
+        ],
+        "summary": "Replace Medical Test Questions",
+        "description": "Заменяет список вопросов до первого прохождения.",
+        "operationId": "replace_medical_test_questions_psy_tests__psy_test_id__questions_put",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "psy_test_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Psy Test Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PsyTestQuestionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PsyTestQuestionResponse"
+                  },
+                  "title": "Response Replace Medical Test Questions Psy Tests  Psy Test Id  Questions Put"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/psy-tests/{psy_test_id}/questions/{question_id}/image": {
+      "post": {
+        "tags": [
+          "psy-tests"
+        ],
+        "summary": "Upload Medical Test Question Image",
+        "description": "Прикрепляет изображение в формате JPEG, PNG или WebP до 10 МБ.",
+        "operationId": "upload_medical_test_question_image_psy_tests__psy_test_id__questions__question_id__image_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "psy_test_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Psy Test Id"
+            }
+          },
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_medical_test_question_image_psy_tests__psy_test_id__questions__question_id__image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PsyTestQuestionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые условия операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недопустимые условия операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Превышен допустимый размер файла",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Превышен допустимый размер файла"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Неподдерживаемый тип файла",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Неподдерживаемый тип файла"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервера",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Внутренняя ошибка сервера"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "psy-tests"
+        ],
+        "summary": "Delete Medical Test Question Image",
+        "description": "Удаляет изображение вопроса до начала прохождений.",
+        "operationId": "delete_medical_test_question_image_psy_tests__psy_test_id__questions__question_id__image_delete",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "psy_test_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Psy Test Id"
+            }
+          },
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PsyTestQuestionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/psy-tests/{psy_test_id}/attempts": {
+      "post": {
+        "tags": [
+          "psy-tests"
+        ],
+        "summary": "Start Medical Test",
+        "description": "Начинает тест или возвращает незавершённое прохождение пользователя.",
+        "operationId": "start_medical_test_psy_tests__psy_test_id__attempts_post",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "psy_test_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Psy Test Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PsyTestAttemptResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/psy-tests/{psy_test_id}/attempts/{attempt_id}": {
+      "get": {
+        "tags": [
+          "psy-tests"
+        ],
+        "summary": "Get Own Medical Test Attempt",
+        "description": "Возвращает собственные ответы и следующий вопрос.",
+        "operationId": "get_own_medical_test_attempt_psy_tests__psy_test_id__attempts__attempt_id__get",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "psy_test_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Psy Test Id"
+            }
+          },
+          {
+            "name": "attempt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Attempt Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PsyTestAttemptResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/psy-tests/{psy_test_id}/attempts/{attempt_id}/answers/{question_id}": {
+      "put": {
+        "tags": [
+          "psy-tests"
+        ],
+        "summary": "Save Medical Test Answer",
+        "description": "Сохраняет один ответ. Последний ответ завершает прохождение.",
+        "operationId": "save_medical_test_answer_psy_tests__psy_test_id__attempts__attempt_id__answers__question_id__put",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "psy_test_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Psy Test Id"
+            }
+          },
+          {
+            "name": "attempt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Attempt Id"
+            }
+          },
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PsyTestTextAnswerRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PsyTestChoiceAnswerRequest"
+                  }
+                ],
+                "title": "Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PsyTestAttemptResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Ошибка валидации входных данных",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Ошибка валидации входных данных"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationValidationErrorResponse"
                 }
               }
             }
@@ -5172,6 +6013,462 @@
               "application/json": {
                 "example": {
                   "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medical-records/": {
+      "get": {
+        "tags": [
+          "medical-records"
+        ],
+        "summary": "Get Medical Record List",
+        "description": "Возвращает по одной карточке на пользователя с ролью обучающегося.",
+        "operationId": "get_medical_record_list_medical_records__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MedicalRecordPreview"
+                  },
+                  "type": "array",
+                  "title": "Response Get Medical Record List Medical Records  Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/medical-records/{user_id}": {
+      "get": {
+        "tags": [
+          "medical-records"
+        ],
+        "summary": "Get Medical Record",
+        "description": "Возвращает профиль пациента, общую заметку и историю завершённых приёмов.",
+        "operationId": "get_medical_record_medical_records__user_id__get",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MedicalRecordResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medical-records/{user_id}/note": {
+      "patch": {
+        "tags": [
+          "medical-records"
+        ],
+        "summary": "Update Medical Record Note",
+        "description": "Сохраняет общую заметку, если её версия не изменилась с момента чтения.",
+        "operationId": "update_medical_record_note_medical_records__user_id__note_patch",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalRecordNoteUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MedicalRecordNoteResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт состояния или версии объекта",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Конфликт состояния или версии объекта"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medical-records/{user_id}/test-attempts": {
+      "get": {
+        "tags": [
+          "medical-records"
+        ],
+        "summary": "Get Student Test Attempts",
+        "description": "Возвращает завершённые и незавершённые медицинские тесты студента.",
+        "operationId": "get_student_test_attempts_medical_records__user_id__test_attempts_get",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Skip"
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "exclusiveMinimum": 0,
+              "default": 100,
+              "title": "Take"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PsyTestAttemptSummary"
+                  },
+                  "title": "Response Get Student Test Attempts Medical Records  User Id  Test Attempts Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medical-records/{user_id}/test-attempts/{attempt_id}": {
+      "get": {
+        "tags": [
+          "medical-records"
+        ],
+        "summary": "Get Student Test Answers",
+        "description": "Возвращает психологу вопросы и сохранённые ответы студента.",
+        "operationId": "get_student_test_answers_medical_records__user_id__test_attempts__attempt_id__get",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "attempt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Attempt Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PsyTestAttemptResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
                 },
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
@@ -6001,6 +7298,20 @@
         ],
         "title": "Body_upload_article_image_articles__article_id__image_post"
       },
+      "Body_upload_medical_test_question_image_psy_tests__psy_test_id__questions__question_id__image_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_upload_medical_test_question_image_psy_tests__psy_test_id__questions__question_id__image_post"
+      },
       "Body_upload_news_image_news__news_id__image_post": {
         "properties": {
           "image": {
@@ -6125,6 +7436,318 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "MedicalAppointment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "patient": {
+            "$ref": "#/components/schemas/UserFullResponse"
+          },
+          "psychologist": {
+            "$ref": "#/components/schemas/PsychologistFullResponse"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AppointmentType"
+          },
+          "duration": {
+            "type": "integer",
+            "enum": [
+              60,
+              90
+            ],
+            "title": "Duration",
+            "default": 60
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AppointmentStatus"
+          },
+          "scheduled_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scheduled Time"
+          },
+          "remind_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remind Time"
+          },
+          "last_change_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Change Time"
+          },
+          "venue": {
+            "type": "string",
+            "title": "Venue"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
+          "cancelled_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled By"
+          },
+          "emergency_cancellation": {
+            "type": "boolean",
+            "title": "Emergency Cancellation",
+            "default": false
+          },
+          "patient_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Comment"
+          },
+          "conclusion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conclusion"
+          },
+          "emergency_contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emergency Contact"
+          },
+          "psychologist_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Psychologist Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "patient",
+          "psychologist",
+          "type",
+          "status",
+          "scheduled_time",
+          "last_change_time",
+          "venue"
+        ],
+        "title": "MedicalAppointment",
+        "description": "Приём в медкарте, включая внутренний комментарий психологам."
+      },
+      "MedicalRecordNoteResponse": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "note_version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Note Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "note",
+          "note_version"
+        ],
+        "title": "MedicalRecordNoteResponse"
+      },
+      "MedicalRecordNoteUpdateRequest": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "note_version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Note Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "note",
+          "note_version"
+        ],
+        "title": "MedicalRecordNoteUpdateRequest"
+      },
+      "MedicalRecordPreview": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user",
+          "note"
+        ],
+        "title": "MedicalRecordPreview"
+      },
+      "MedicalRecordResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "note_version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Note Version"
+          },
+          "next_appointment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MedicalAppointment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completed_appointments": {
+            "items": {
+              "$ref": "#/components/schemas/MedicalAppointment"
+            },
+            "type": "array",
+            "title": "Completed Appointments"
+          },
+          "tests_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Tests Count"
+          },
+          "surveys_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Surveys Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user",
+          "note",
+          "note_version",
+          "next_appointment",
+          "completed_appointments",
+          "tests_count",
+          "surveys_count"
+        ],
+        "title": "MedicalRecordResponse"
       },
       "MessageResponse": {
         "properties": {
@@ -6480,6 +8103,153 @@
         ],
         "title": "PasswordResetRequest"
       },
+      "PsyTestAttemptResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "test_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Test Id"
+          },
+          "test_title": {
+            "type": "string",
+            "title": "Test Title"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "answers": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PsyTestSavedTextAnswer"
+                },
+                {
+                  "$ref": "#/components/schemas/PsyTestSavedChoiceAnswer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Answers"
+          },
+          "next_question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PsyTestQuestionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "test_id",
+          "test_title",
+          "started_at",
+          "completed_at",
+          "answers",
+          "next_question"
+        ],
+        "title": "PsyTestAttemptResponse"
+      },
+      "PsyTestAttemptSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "test_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Test Id"
+          },
+          "test_title": {
+            "type": "string",
+            "title": "Test Title"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "test_id",
+          "test_title",
+          "started_at",
+          "completed_at"
+        ],
+        "title": "PsyTestAttemptSummary"
+      },
+      "PsyTestChoiceAnswerRequest": {
+        "properties": {
+          "option_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Option Ids",
+            "description": "UUID вариантов вопроса. Для одиночного выбора передайте один UUID."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "option_ids"
+        ],
+        "title": "PsyTestChoiceAnswerRequest"
+      },
       "PsyTestCreateRequest": {
         "properties": {
           "title": {
@@ -6507,6 +8277,28 @@
           },
           "type": {
             "$ref": "#/components/schemas/TestType"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/PsyTestQuestionInput"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Questions"
           }
         },
         "type": "object",
@@ -6516,6 +8308,138 @@
           "type"
         ],
         "title": "PsyTestCreateRequest"
+      },
+      "PsyTestQuestionInput": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "pattern": "^[^\\x00]+$",
+            "title": "Text"
+          },
+          "type": {
+            "$ref": "#/components/schemas/QuestionType",
+            "default": "text"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PsyTestQuestionOptionInput"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Options",
+            "description": "Для вопросов с выбором требуется минимум два варианта."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "PsyTestQuestionInput"
+      },
+      "PsyTestQuestionOptionInput": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "pattern": "^[^\\x00]+$",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "PsyTestQuestionOptionInput"
+      },
+      "PsyTestQuestionOptionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "PsyTestQuestionOptionResponse"
+      },
+      "PsyTestQuestionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "type": {
+            "$ref": "#/components/schemas/QuestionType"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PsyTestQuestionOptionResponse"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "text",
+          "image",
+          "type",
+          "options"
+        ],
+        "title": "PsyTestQuestionResponse"
+      },
+      "PsyTestQuestionsRequest": {
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/PsyTestQuestionInput"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Questions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "questions"
+        ],
+        "title": "PsyTestQuestionsRequest"
       },
       "PsyTestResponse": {
         "properties": {
@@ -6546,6 +8470,17 @@
           "type": {
             "$ref": "#/components/schemas/TestType"
           },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -6561,6 +8496,73 @@
           "created_at"
         ],
         "title": "PsyTestResponse"
+      },
+      "PsyTestSavedChoiceAnswer": {
+        "properties": {
+          "question": {
+            "$ref": "#/components/schemas/PsyTestQuestionResponse"
+          },
+          "answered_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Answered At"
+          },
+          "option_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Option Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "answered_at",
+          "option_ids"
+        ],
+        "title": "PsyTestSavedChoiceAnswer"
+      },
+      "PsyTestSavedTextAnswer": {
+        "properties": {
+          "question": {
+            "$ref": "#/components/schemas/PsyTestQuestionResponse"
+          },
+          "answered_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Answered At"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "answered_at",
+          "answer"
+        ],
+        "title": "PsyTestSavedTextAnswer"
+      },
+      "PsyTestTextAnswerRequest": {
+        "properties": {
+          "answer": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "pattern": "^[^\\x00]+$",
+            "title": "Answer"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "answer"
+        ],
+        "title": "PsyTestTextAnswerRequest"
       },
       "PsyTestUpdateRequest": {
         "properties": {
@@ -6610,6 +8612,20 @@
                 "type": "null"
               }
             ]
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
           }
         },
         "type": "object",
@@ -6941,6 +8957,15 @@
           "sick"
         ],
         "title": "PsychologistStatusType"
+      },
+      "QuestionType": {
+        "type": "string",
+        "enum": [
+          "text",
+          "single_choice",
+          "multiple_choice"
+        ],
+        "title": "QuestionType"
       },
       "RateLimitErrorResponse": {
         "properties": {
@@ -7306,8 +9331,15 @@
             "title": "Last Name"
           },
           "phone_number": {
-            "type": "string",
-            "format": "phone",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "phone"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Phone Number"
           },
           "email": {
@@ -7419,8 +9451,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 20,
-                "minLength": 10
+                "format": "phone"
               },
               {
                 "type": "null"

@@ -23,6 +23,10 @@ class Appointment(Base):
     __tablename__ = "appointments"
     __table_args__ = (
         Index(
+            "ix_appointments_patient_status_time_id",
+            "patient_id", "status", "scheduled_time", "id",
+        ),
+        Index(
             "uq_appointments_psychologist_scheduled_active",
             "psychologist_id",
             "scheduled_time",

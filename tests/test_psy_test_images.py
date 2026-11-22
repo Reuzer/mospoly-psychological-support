@@ -33,7 +33,8 @@ def psy_test_state(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "PSY_TEST_IMAGE_DIR", tmp_path / "photos")
     psy_test = SimpleNamespace(
         id=uuid4(), title="Тест", description="Описание теста", image=None,
-        type=psy_test_models.TestType.MEDICAL.value, created_at="2026-11-08T00:00:00Z",
+        type=psy_test_models.TestType.ENTERTAINING.value, created_at="2026-11-08T00:00:00Z",
+        url="https://example.org/test",
     )
     state = {psy_test.id: psy_test}
 
@@ -66,7 +67,7 @@ def psy_test_state(monkeypatch, tmp_path):
 @pytest.fixture
 async def client(monkeypatch, psy_test_state):
     async def current_user():
-        return SimpleNamespace(id=uuid4())
+        return SimpleNamespace(id=uuid4(), roles=[])
 
     async def allowed(user_id, permission):
         assert permission in {PermissionCode.TESTS_EDIT, PermissionCode.TESTS_DELETE}
