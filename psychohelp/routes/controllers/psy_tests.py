@@ -6,22 +6,45 @@ from starlette.status import HTTP_201_CREATED, HTTP_403_FORBIDDEN, HTTP_404_NOT_
 
 from psychohelp.schemas.errors import error_responses
 from psychohelp.config.logging import get_logger
-from psychohelp.constants.rbac import PermissionCode
+from psychohelp.constants.rbac import PermissionCode, RoleCode
 from psychohelp.dependencies.auth import get_current_user
+from psychohelp.models.psy_tests import PsyTestQuestion, TestType
 from psychohelp.models.users import User
-from psychohelp.routes.upload_limits import PsyTestImageUploadRoute
+from psychohelp.routes.psy_test_route import PsyTestRoute
 from psychohelp.schemas.psy_tests import (
     PsyTestCreateRequest,
+    PsyTestQuestionResponse,
+    PsyTestQuestionsRequest,
     PsyTestResponse,
     PsyTestUpdateRequest,
 )
 import psychohelp.services.psy_tests as psy_test_service
+from psychohelp.repositories import psy_tests as psy_test_repository
 from psychohelp.services.psy_test_images import IMAGE_FILENAME, IMAGE_URL_PREFIX
-from psychohelp.services.rbac.permissions import require_permission
+from psychohelp.services.rbac import permissions
 
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/psy-tests", tags=["psy-tests"], route_class=PsyTestImageUploadRoute)
+router = APIRouter(prefix="/psy-tests", tags=["psy-tests"], route_class=PsyTestRoute)
+
+
+async def _require_write_permission(current_user: User, test_type: TestType, permission: PermissionCode):
+    if test_type == TestType.MEDICAL:
+        if not any(role.code in (RoleCode.PSYCHOLOGIST, RoleCode.ADMIN) for role in current_user.roles):
+            raise HTTPException(HTTP_403_FORBIDDEN, "Медицинские тесты редактируют психологи и администраторы")
+    elif not await permissions.user_has_permission(current_user.id, permission):
+        raise HTTPException(HTTP_403_FORBIDDEN, f"Недостаточно прав: требуется {permission.value}")
+
+
+async def _require_test_write(psy_test_id: UUID, current_user: User, permission: PermissionCode):
+    test = await psy_test_service.get_psy_test_by_id(psy_test_id)
+    if test is None:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Тест не найден")
+    await _require_write_permission(current_user, test.type, permission)
+
+
+async def _require_medical_test_staff(current_user: User = Depends(get_current_user)):
+    await _require_write_permission(current_user, TestType.MEDICAL, PermissionCode.TESTS_EDIT)
 
 
 def _image_root_path(image: str | None, root_path: str, *, add: bool) -> str | None:
@@ -45,7 +68,17 @@ def _psy_test_data(data: dict, request: Request | None) -> dict:
     root_path = request.scope.get("root_path", "").rstrip("/") if request else ""
     if root_path and "image" in data:
         data["image"] = _image_root_path(data["image"], root_path, add=False)
+    if data.get("url") is not None:
+        data["url"] = str(data["url"])
     return data
+
+
+def question_response(question: PsyTestQuestion, request: Request) -> PsyTestQuestionResponse:
+    response = PsyTestQuestionResponse.model_validate(question)
+    root_path = request.scope.get("root_path", "").rstrip("/")
+    if root_path:
+        response.image = _image_root_path(response.image, root_path, add=True)
+    return response
 
 
 @router.get("/", response_model=list[PsyTestResponse])
@@ -67,31 +100,31 @@ async def get_psy_test(psy_test_id: UUID, request: Request = None) -> PsyTestRes
 
 
 @router.post("/", responses=error_responses(401, 403), response_model=PsyTestResponse, status_code=HTTP_201_CREATED)
-@require_permission(PermissionCode.TESTS_CREATE)
 async def create_psy_test(
     data: PsyTestCreateRequest,
     current_user: User = Depends(get_current_user),
     request: Request = None,
 ) -> PsyTestResponse:
+    await _require_write_permission(current_user, data.type, PermissionCode.TESTS_CREATE)
     psy_test_item = await psy_test_service.create_psy_test(_psy_test_data(data.model_dump(), request))
     logger.info(f"PsyTest created: {psy_test_item.id}")
     return _psy_test_response(psy_test_item, request)
 
 
-@router.put("/{psy_test_id}", responses=error_responses(401, 403, 404), response_model=PsyTestResponse)
-@require_permission(PermissionCode.TESTS_EDIT)
+@router.put("/{psy_test_id}", responses=error_responses(401, 403, 404, 409), response_model=PsyTestResponse)
 async def update_psy_test(
     psy_test_id: UUID,
     data: PsyTestUpdateRequest,
     current_user: User = Depends(get_current_user),
     request: Request = None,
 ) -> PsyTestResponse:
+    await _require_test_write(psy_test_id, current_user, PermissionCode.TESTS_EDIT)
     # Игнорируем поля, которые не прислали, и null для обязательных полей;
     # image: null явно удаляет фотографию
     update_data = {
         field: value
         for field, value in data.model_dump(exclude_unset=True).items()
-        if value is not None or field == "image"
+        if value is not None or field in {"image", "url"}
     }
     psy_test_item = await psy_test_service.update_psy_test(
         psy_test_id, _psy_test_data(update_data, request),
@@ -103,11 +136,11 @@ async def update_psy_test(
 
 
 @router.delete("/{psy_test_id}", responses=error_responses(401, 403, 404))
-@require_permission(PermissionCode.TESTS_DELETE)
 async def delete_psy_test(
     psy_test_id: UUID,
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
+    await _require_test_write(psy_test_id, current_user, PermissionCode.TESTS_DELETE)
     deleted = await psy_test_service.delete_psy_test(psy_test_id)
     if not deleted:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Тест не найден")
@@ -120,15 +153,15 @@ async def delete_psy_test(
     responses=error_responses(400, 401, 403, 404, 413, 415, 500),
     response_model=PsyTestResponse,
     summary="Загрузить или заменить фотографию теста",
-    description="JPEG, PNG или WebP до 10 МБ и 20 млн пикселей, без анимации. Требуется tests.edit.",
+    description="JPEG, PNG или WebP до 10 МБ и 20 млн пикселей, без анимации.",
 )
-@require_permission(PermissionCode.TESTS_EDIT)
 async def upload_psy_test_image(
     psy_test_id: UUID,
     image: UploadFile = File(..., description="Фотография теста (JPEG, PNG или WebP)"),
     current_user: User = Depends(get_current_user),
     request: Request = None,
 ) -> PsyTestResponse:
+    await _require_test_write(psy_test_id, current_user, PermissionCode.TESTS_EDIT)
     try:
         psy_test_item = await psy_test_service.upload_psy_test_image(psy_test_id, image)
     except SQLAlchemyError as exc:
@@ -146,14 +179,67 @@ async def upload_psy_test_image(
     response_model=PsyTestResponse,
     summary="Удалить фотографию теста",
 )
-@require_permission(PermissionCode.TESTS_EDIT)
 async def delete_psy_test_image(
     psy_test_id: UUID,
     current_user: User = Depends(get_current_user),
     request: Request = None,
 ) -> PsyTestResponse:
+    await _require_test_write(psy_test_id, current_user, PermissionCode.TESTS_EDIT)
     psy_test_item = await psy_test_service.update_psy_test(psy_test_id, {"image": None})
     if psy_test_item is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Тест не найден")
     logger.info("PsyTest image removed: %s", psy_test_id)
     return _psy_test_response(psy_test_item, request)
+
+
+@router.get(
+    "/{psy_test_id}/questions", response_model=list[PsyTestQuestionResponse],
+    dependencies=[Depends(_require_medical_test_staff)], responses=error_responses(401, 403, 404),
+)
+async def get_medical_test_questions(psy_test_id: UUID, request: Request) -> list[PsyTestQuestionResponse]:
+    """Показывает психологу или администратору вопросы в порядке прохождения."""
+    questions = await psy_test_repository.list_medical_test_questions(psy_test_id)
+    return [question_response(question, request) for question in questions]
+
+
+@router.put(
+    "/{psy_test_id}/questions", response_model=list[PsyTestQuestionResponse],
+    dependencies=[Depends(_require_medical_test_staff)], responses=error_responses(401, 403, 404, 409),
+)
+async def replace_medical_test_questions(
+    psy_test_id: UUID, data: PsyTestQuestionsRequest, request: Request,
+) -> list[PsyTestQuestionResponse]:
+    """Заменяет список вопросов до первого прохождения."""
+    questions = await psy_test_service.replace_medical_test_questions(
+        psy_test_id, data.model_dump()["questions"],
+    )
+    return [question_response(question, request) for question in questions]
+
+
+@router.post(
+    "/{psy_test_id}/questions/{question_id}/image", response_model=PsyTestQuestionResponse,
+    dependencies=[Depends(_require_medical_test_staff)],
+    responses=error_responses(400, 401, 403, 404, 409, 413, 415, 500),
+)
+async def upload_medical_test_question_image(
+    psy_test_id: UUID, question_id: UUID, request: Request, image: UploadFile = File(...),
+) -> PsyTestQuestionResponse:
+    """Прикрепляет изображение в формате JPEG, PNG или WebP до 10 МБ."""
+    try:
+        question = await psy_test_service.upload_medical_test_question_image(psy_test_id, question_id, image)
+    except SQLAlchemyError as exc:
+        logger.exception("Could not persist psy test question image: %s", question_id)
+        raise HTTPException(500, "Не удалось сохранить фотографию") from exc
+    return question_response(question, request)
+
+
+@router.delete(
+    "/{psy_test_id}/questions/{question_id}/image", response_model=PsyTestQuestionResponse,
+    dependencies=[Depends(_require_medical_test_staff)], responses=error_responses(401, 403, 404, 409),
+)
+async def delete_medical_test_question_image(
+    psy_test_id: UUID, question_id: UUID, request: Request,
+) -> PsyTestQuestionResponse:
+    """Удаляет изображение вопроса до начала прохождений."""
+    question = await psy_test_service.update_medical_test_question_image(psy_test_id, question_id, None)
+    return question_response(question, request)

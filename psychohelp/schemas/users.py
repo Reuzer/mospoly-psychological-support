@@ -1,4 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel, EmailStr, Field, ValidationError, ValidatorFunctionWrapHandler,
+    field_validator, model_validator,
+)
 from pydantic_extra_types.phone_numbers import PhoneNumber
 from typing import Optional
 from psychohelp.schemas.roles import RoleResponse 
@@ -37,11 +40,22 @@ class UserResponse(BaseModel):
     first_name: str = Field(min_length=1, max_length=50)
     middle_name: str | None = Field(None, min_length=1, max_length=50)
     last_name: str = Field(min_length=1, max_length=50)
-    phone_number: PhoneNumber
+    phone_number: PhoneNumber | None
     email: EmailStr
     social_media: str | None = Field(None, max_length=50)
     roles: list[RoleResponse] = []
     study_group: Optional[str] = None
+
+    @field_validator("phone_number", mode="wrap")
+    @classmethod
+    def read_legacy_phone(cls, value: str | None, handler: ValidatorFunctionWrapHandler) -> str | None:
+        try:
+            return handler(value)
+        except ValidationError:
+            # Ранние версии API позволяли сохранить некорректный номер.
+            if isinstance(value, str):
+                return None
+            raise
 
     class Config:
         from_attributes = True
@@ -79,7 +93,7 @@ class UserUpdateRequest(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     middle_name: Optional[str] = Field(None, min_length=1, max_length=50)
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)
-    phone_number: Optional[str] = Field(None, min_length=10, max_length=20)
+    phone_number: PhoneNumber | None = None
     email: Optional[EmailStr] = None
     social_media: Optional[str] = Field(None, max_length=50)
     study_group: Optional[str] = Field(None, max_length=50)

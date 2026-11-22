@@ -5,6 +5,7 @@ import importlib.util
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -13,6 +14,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from fastapi import FastAPI
 import httpx
+from PIL import Image
 import pytest
 import pytest_asyncio
 from sqlalchemy import delete, func, select, text, update
@@ -31,7 +33,9 @@ from psychohelp.models.roles import Role
 from psychohelp.models.users import User
 from psychohelp.repositories import create_access_token
 from psychohelp.repositories import medical_records as repo, users as users_repo
-from psychohelp.routes.controllers import medical_records, users
+from psychohelp.repositories import psy_test_attempts, psy_tests
+from psychohelp.routes.controllers import medical_records, psy_test_attempts as attempt_routes
+from psychohelp.routes.controllers import images, psy_tests as test_routes, users
 from psychohelp.schemas.medical_records import MedicalRecordResponse
 from psychohelp.schemas.users import UserResponse
 from psychohelp.services import medical_records as service
@@ -328,6 +332,315 @@ async def test_get_endpoints_and_student_profile_through_cookie_auth(database, m
         assert "note" not in profile and "note_version" not in profile
         assert "Общая заметка специалистов" not in response.text
         assert "password" not in profile
+
+
+async def test_profile_and_medical_records_handle_legacy_phone(database, monkeypatch):
+    db = database
+    monkeypatch.setattr(users_repo, "get_async_db", db.get_db)
+    invalid_phone = "+70000000000"
+    application = FastAPI()
+    application.include_router(medical_records.router)
+    application.include_router(users.router)
+    transport = httpx.ASGITransport(app=application)
+
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://test",
+        cookies={"access_token": create_access_token(db.patient.id)},
+    ) as student:
+        response = await student.put("/users/me", json={"phone_number": invalid_phone})
+        assert response.status_code == 422
+        assert response.json()["detail"][0]["loc"] == ["body", "phone_number"]
+
+        async with db.sessions() as session:
+            patient = await session.get(User, db.patient.id)
+            assert patient.phone_number == db.patient.phone_number
+            patient.phone_number = invalid_phone
+            await session.commit()
+
+        response = await student.get("/users/user")
+        assert response.status_code == 200
+        assert response.json()["phone_number"] is None
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test",
+            cookies={"access_token": create_access_token(db.staff.id)},
+        ) as staff:
+            response = await staff.get("/medical-records/")
+            assert response.status_code == 200
+            phones = {card["id"]: card["user"]["phone_number"] for card in response.json()}
+            assert phones == {
+                str(db.patient.id): None, str(db.another_patient.id): db.another_patient.phone_number,
+            }
+            response = await staff.get(f"/medical-records/{db.patient.id}")
+            assert response.status_code == 200
+            assert response.json()["user"]["phone_number"] is None
+
+        response = await student.put("/users/me", json={"phone_number": "+7 (999) 123-45-68"})
+        assert response.status_code == 200
+        assert response.json()["phone_number"] == "+79991234568"
+
+    async with db.sessions() as session:
+        patient = await session.get(User, db.patient.id)
+        assert patient.phone_number == "+79991234568"
+
+
+@pytest.fixture
+def assessment_api(database, monkeypatch, tmp_path):
+    for repository in (users_repo, psy_tests, psy_test_attempts):
+        monkeypatch.setattr(repository, "get_async_db", database.get_db)
+    monkeypatch.setattr(images.config, "PSY_TEST_IMAGE_DIR", tmp_path / "psy-tests")
+    app = FastAPI()
+    for router in (
+        test_routes.router, attempt_routes.router, attempt_routes.results_router, medical_records.router, images.router,
+    ):
+        app.include_router(router)
+
+    def client(user):
+        return httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, root_path="/api"),
+            base_url="http://test", cookies={"access_token": create_access_token(user.id)},
+        )
+
+    return client
+
+
+async def test_catalog_creates_only_tests_matching_their_type(database, assessment_api, monkeypatch):
+    from psychohelp.services.rbac import permissions
+
+    async def can_manage_catalog(_user_id, _permission):
+        return True
+
+    monkeypatch.setattr(permissions, "user_has_permission", can_manage_catalog)
+    payload = {"title": "Тест", "description": "Описание"}
+    async with assessment_api(database.patient) as catalog, assessment_api(database.another_patient) as admin:
+        medical = payload | {"type": "Медицинский", "questions": [{"text": "Как вы себя чувствуете?"}]}
+        assert (await catalog.post("/psy-tests/", json=medical)).status_code == 403
+        assert (await admin.post("/psy-tests/", json=payload | {"type": "Медицинский"})).status_code == 422
+        assert (await admin.post("/psy-tests/", json=medical | {"url": "https://example.org/"})).status_code == 422
+        assert (await admin.post("/psy-tests/", json=medical)).status_code == 201
+
+        external = payload | {"type": "Развлекательный"}
+        assert (await catalog.post("/psy-tests/", json=external)).status_code == 422
+        assert (await catalog.post("/psy-tests/", json=external | {"url": "mailto:test@example.org"})).status_code == 422
+        response = await catalog.post("/psy-tests/", json=external | {"url": "https://example.org/test"})
+        assert response.status_code == 201
+        assert response.json()["url"] == "https://example.org/test"
+        path = f"/psy-tests/{response.json()['id']}"
+        assert (await catalog.post(path + "/attempts")).status_code == 404
+        assert (await catalog.put(path, json={"type": "Медицинский"})).status_code == 409
+
+
+async def test_medical_test_resumes_and_counts_completed_attempts(database, assessment_api):
+    patient_id = database.patient.id
+    record_path = f"/medical-records/{patient_id}"
+    results_path = record_path + "/test-attempts"
+    async with (
+        assessment_api(database.staff) as psychologist,
+        assessment_api(database.patient) as student,
+        assessment_api(database.another_patient) as other,
+    ):
+        created = await psychologist.post("/psy-tests/", json={
+            "title": "Самочувствие", "description": "Ретроспектива", "type": "Медицинский",
+            "questions": [{"text": "Как вы спали?"}, {"text": "Как ваше настроение?"}],
+        })
+        assert created.status_code == 201, created.text
+        path = f"/psy-tests/{created.json()['id']}"
+        questions_path = path + "/questions"
+        questions = (await psychologist.get(questions_path)).json()
+        assert [question["position"] for question in questions] == [1, 2]
+        first, second = questions
+        assert first["image"] is None and second["image"] is None
+
+        picture = BytesIO()
+        Image.new("RGB", (4, 4)).save(picture, "PNG")
+        image_path = f"{questions_path}/{first['id']}/image"
+        uploaded = await psychologist.post(image_path, files={
+            "image": ("question.png", picture.getvalue(), "image/png"),
+        })
+        assert uploaded.status_code == 200, uploaded.text
+        first = uploaded.json()
+        assert first["image"].startswith("/api/media/psy-tests/")
+        assert (await student.get(first["image"])).status_code == 200
+
+        starts = await asyncio.gather(*(student.post(path + "/attempts") for _ in range(2)))
+        assert all(response.status_code == 200 for response in starts)
+        attempt = starts[0].json()
+        assert starts[1].json()["id"] == attempt["id"]
+        assert attempt["next_question"] == first
+        attempt_path = f"{path}/attempts/{attempt['id']}"
+        assert (await other.get(attempt_path)).status_code == 404
+        assert (await other.put(attempt_path + f"/answers/{first['id']}", json={"answer": "Чужой"})).status_code == 404
+        assert (await other.get(results_path)).status_code == 403
+        assert (await student.get(results_path)).status_code == 403
+        assert (await psychologist.delete(image_path)).status_code == 409
+        assert (await psychologist.put(questions_path, json={"questions": [{"text": "Новый вопрос"}]})).status_code == 409
+
+        first_answer_path = f"{attempt_path}/answers/{first['id']}"
+        last_answer_path = f"{attempt_path}/answers/{second['id']}"
+        assert (await student.put(last_answer_path, json={"answer": "Хорошее"})).status_code == 409
+        assert (await student.put(first_answer_path, json={"answer": "   "})).status_code == 422
+        saved = await student.put(first_answer_path, json={"answer": "Спал хорошо"})
+        assert saved.status_code == 200
+        assert saved.json()["next_question"] == second
+        assert (await student.post(path + "/attempts")).json() == saved.json()
+        assert (await psychologist.get(record_path)).json()["tests_count"] == 0
+        details_path = f"{results_path}/{attempt['id']}"
+        reviewed = await psychologist.get(details_path)
+        assert reviewed.status_code == 200 and reviewed.headers["cache-control"] == "no-store"
+        assert reviewed.json()["answers"][0]["answer"] == "Спал хорошо"
+        assert reviewed.json()["completed_at"] is None
+
+        submitted = await asyncio.gather(*(
+            student.put(last_answer_path, json={"answer": "Хорошее"}) for _ in range(2)
+        ))
+        assert all(response.status_code == 200 for response in submitted)
+        completed = submitted[0].json()
+        assert submitted[1].json() == completed
+        assert completed["completed_at"] and completed["next_question"] is None
+        assert [item["question"] for item in completed["answers"]] == [first, second]
+        assert (await student.put(last_answer_path, json={"answer": "Другой"})).status_code == 409
+
+        second_attempt = (await student.post(path + "/attempts")).json()
+        assert second_attempt["id"] != attempt["id"]
+        for question in (first, second):
+            answer = await student.put(
+                f"{path}/attempts/{second_attempt['id']}/answers/{question['id']}",
+                json={"answer": "Повторный ответ"},
+            )
+            assert answer.status_code == 200
+        assert (await psychologist.get(record_path)).json()["tests_count"] == 1
+        assert (await psychologist.delete(path)).status_code == 200
+        assert (await student.get(path)).status_code == 404
+        assert (await student.post(path + "/attempts")).status_code == 404
+        assert (await psychologist.get(details_path)).json() == completed
+        assert len((await psychologist.get(results_path)).json()) == 2
+        assert (await psychologist.get(record_path)).json()["tests_count"] == 1
+
+    async with database.sessions() as session:
+        completions = await session.scalar(select(func.count()).select_from(PsyTestCompletion))
+        assert completions == 2
+
+
+async def test_medical_test_restart_can_overlap_final_answer(database, assessment_api, monkeypatch):
+    async with assessment_api(database.staff) as psychologist, assessment_api(database.patient) as student:
+        created = await psychologist.post("/psy-tests/", json={
+            "title": "Самочувствие", "description": "Описание", "type": "Медицинский",
+            "questions": [{"text": "Как вы себя чувствуете?"}],
+        })
+        assert created.status_code == 201, created.text
+        path = f"/psy-tests/{created.json()['id']}/attempts"
+        started = await student.post(path)
+        assert started.status_code == 200, started.text
+        attempt = started.json()
+        answer_path = f"{path}/{attempt['id']}/answers/{attempt['next_question']['id']}"
+
+        attempt_locked = asyncio.Event()
+        test_locked = asyncio.Event()
+        get_questions = psy_test_attempts.get_questions
+        require_medical_test = psy_test_attempts.require_medical_test
+
+        async def wait_for_restart(*args):
+            if not attempt_locked.is_set():
+                attempt_locked.set()
+                await test_locked.wait()
+            return await get_questions(*args)
+
+        async def notify_test_locked(*args, **kwargs):
+            test = await require_medical_test(*args, **kwargs)
+            test_locked.set()
+            return test
+
+        monkeypatch.setattr(psy_test_attempts, "get_questions", wait_for_restart)
+        monkeypatch.setattr(psy_test_attempts, "require_medical_test", notify_test_locked)
+
+        async with asyncio.timeout(10), asyncio.TaskGroup() as tasks:
+            submitted = tasks.create_task(student.put(answer_path, json={"answer": "Хорошо"}))
+            await attempt_locked.wait()
+            restarted = tasks.create_task(student.post(path))
+
+        completed = submitted.result()
+        assert completed.status_code == 200, completed.text
+        assert completed.json()["completed_at"] is not None
+        next_attempt = restarted.result()
+        assert next_attempt.status_code == 200, next_attempt.text
+        assert next_attempt.json()["id"] != attempt["id"]
+        assert next_attempt.json()["completed_at"] is None
+
+
+async def test_medical_test_supports_text_and_both_choice_types(database, assessment_api):
+    questions = [
+        {"text": "Что вы хотите добавить?"},
+        {"text": "Выберите настроение", "type": "single_choice",
+         "options": [{"text": "Хорошее"}, {"text": "Спокойное"}]},
+        {"text": "Что помогло вам отдохнуть?", "type": "multiple_choice",
+         "options": [{"text": "Сон"}, {"text": "Прогулка"}, {"text": "Общение"}]},
+    ]
+    payload = {"title": "Самочувствие", "description": "Описание", "type": "Медицинский"}
+    async with assessment_api(database.staff) as psychologist, assessment_api(database.patient) as student:
+        for invalid in (
+            {"text": "Текст", "options": [{"text": "Лишний вариант"}]},
+            {"text": "Одиночный выбор", "type": "single_choice"},
+            {"text": "Множественный выбор", "type": "multiple_choice", "options": [{"text": "Один"}]},
+        ):
+            response = await psychologist.post("/psy-tests/", json=payload | {"questions": [invalid]})
+            assert response.status_code == 422
+
+        response = await psychologist.post("/psy-tests/", json=payload | {"questions": questions})
+        assert response.status_code == 201, response.text
+        path = f"/psy-tests/{response.json()['id']}"
+        original = (await psychologist.get(path + "/questions")).json()
+        updated = await psychologist.put(path + "/questions", json={"questions": questions})
+        assert updated.status_code == 200, updated.text
+        text_question, single, multiple = updated.json()
+        assert text_question["type"] == "text" and text_question["options"] == []
+        assert [item["text"] for item in single["options"]] == ["Хорошее", "Спокойное"]
+        assert [item["text"] for item in multiple["options"]] == ["Сон", "Прогулка", "Общение"]
+        original_id = original[1]["options"][0]["id"]
+        single_ids = [item["id"] for item in single["options"]]
+        multiple_ids = [item["id"] for item in multiple["options"]]
+        assert original_id not in single_ids
+        assert (await psychologist.get(path + "/questions")).json() == updated.json()
+
+        attempt = (await student.post(path + "/attempts")).json()
+        answers_path = f"{path}/attempts/{attempt['id']}/answers"
+        text_path = f"{answers_path}/{text_question['id']}"
+        single_path = f"{answers_path}/{single['id']}"
+        multiple_path = f"{answers_path}/{multiple['id']}"
+        assert (await student.put(text_path, json={"option_ids": [single_ids[0]]})).status_code == 422
+        text_result = await student.put(text_path, json={"answer": "Всё хорошо"})
+        assert text_result.status_code == 200
+        assert text_result.json()["next_question"] == single
+
+        for body in (
+            {"option_ids": single_ids},
+            {"option_ids": [original_id]},
+            {"option_ids": [multiple_ids[0]]},
+            {"answer": "Хорошее"},
+            {"answer": "Хорошее", "option_ids": [single_ids[0]]},
+        ):
+            assert (await student.put(single_path, json=body)).status_code == 422
+        saved = await student.put(single_path, json={"option_ids": [single_ids[0]]})
+        assert saved.status_code == 200
+        assert saved.json()["next_question"] == multiple
+        assert (await student.post(path + "/attempts")).json() == saved.json()
+
+        for invalid_ids in ([], [multiple_ids[0], multiple_ids[0]], [single_ids[0], multiple_ids[0]]):
+            assert (await student.put(multiple_path, json={"option_ids": invalid_ids})).status_code == 422
+        record_path = f"/medical-records/{database.patient.id}"
+        assert (await psychologist.get(record_path)).json()["tests_count"] == 0
+        completed = await student.put(multiple_path, json={"option_ids": multiple_ids[:2][::-1]})
+        assert completed.status_code == 200, completed.text
+        result = completed.json()
+        assert result["completed_at"] and result["next_question"] is None
+        assert (await student.put(multiple_path, json={"option_ids": multiple_ids[:2]})).json() == result
+        assert (await student.put(multiple_path, json={"option_ids": multiple_ids[1:]})).status_code == 409
+        assert result["answers"][0]["answer"] == "Всё хорошо"
+        assert result["answers"][1]["option_ids"] == [single_ids[0]]
+        assert result["answers"][2]["option_ids"] == multiple_ids[:2]
+        assert result["answers"][2]["question"] == multiple
+        reviewed = await psychologist.get(f"{record_path}/test-attempts/{attempt['id']}")
+        assert reviewed.json() == result
+        assert (await psychologist.get(record_path)).json()["tests_count"] == 1
 
 
 async def test_migration_preserves_users_and_initializes_notes(database):

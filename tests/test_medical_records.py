@@ -1,7 +1,9 @@
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 import httpx
 import pytest
@@ -163,6 +165,11 @@ async def test_student_profile_does_not_expose_note(application, patient):
     assert "note" not in UserFullResponse.model_fields
     assert "note" not in UserUpdateRequest.model_validate({"note": "Попытка правки"}).model_dump()
     assert "psychologist_comment" not in AppointmentBase.model_fields
+
+
+def test_alembic_has_one_head():
+    migrations = ScriptDirectory(str(Path(__file__).resolve().parents[1] / "alembic"))
+    assert len(migrations.get_heads()) == 1
 
 
 def test_openapi_contract_and_authentication(application):
