@@ -12,7 +12,7 @@ from psychohelp.services.psy_test_images import (
 )
 
 
-async def get_psy_test_list(skip: int = 0, take: int = 100) -> list[PsyTest]:
+async def get_psy_test_list(skip: int = 0, take: int = 100) -> list[tuple[PsyTest, int]]:
     return await psy_tests_repo.get_psy_test_list(skip, take)
 
 
@@ -59,13 +59,6 @@ async def delete_psy_test(psy_test_id: UUID) -> bool:
     if deleted:
         await run_in_threadpool(remove_psy_test_image, psy_test_id, previous_image)
     return deleted
-
-
-async def replace_medical_test_questions(test_id: UUID, questions: list[dict]) -> list[PsyTestQuestion]:
-    saved, previous_images = await psy_tests_repo.replace_medical_test_questions(test_id, questions)
-    for question_id, image in previous_images:
-        await run_in_threadpool(remove_psy_test_image, question_id, image)
-    return saved
 
 
 async def update_medical_test_question_image(

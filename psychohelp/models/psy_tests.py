@@ -25,6 +25,9 @@ class QuestionType(str, enum.Enum):
 
 class PsyTest(Base):
     __tablename__ = "psychological_tests"
+    __table_args__ = (
+        CheckConstraint("estimated_duration_minutes > 0", name="ck_psy_tests_estimated_duration"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     title = Column(String(255), nullable=False, comment="Название теста")
@@ -32,6 +35,7 @@ class PsyTest(Base):
     image = Column(String(1024), nullable=True, comment="Ссылка на фотографию теста")
     url = Column(String(2083), nullable=True, comment="Ссылка на внешний развлекательный тест")
     archived = Column(Boolean, nullable=False, server_default=false())
+    estimated_duration_minutes = Column(Integer, nullable=True)
 
     type = Column(Enum(TestType), nullable=False, comment="Тип теста: мед или развл")
 

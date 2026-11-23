@@ -2361,6 +2361,156 @@
         }
       }
     },
+    "/therapists/me": {
+      "get": {
+        "tags": [
+          "therapists"
+        ],
+        "summary": "Get Own Psychologist",
+        "description": "Получить собственный профессиональный профиль.",
+        "operationId": "get_own_psychologist_therapists_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PsychologistResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "therapists"
+        ],
+        "summary": "Patch Own Psychologist",
+        "description": "Обновить переданные поля собственного профессионального профиля.",
+        "operationId": "patch_own_psychologist_therapists_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PsychologistUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PsychologistResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован или токен недействителен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Пользователь не авторизован или токен недействителен"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для выполнения операции",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Недостаточно прав для выполнения операции"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Запрашиваемый объект не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Запрашиваемый объект не найден"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
     "/therapists/{psychologist_id}": {
       "get": {
         "tags": [
@@ -4273,7 +4423,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/PsyTestResponse"
+                    "$ref": "#/components/schemas/PsyTestListItem"
                   },
                   "title": "Response Get Psy Test List Psy Tests  Get"
                 }
@@ -4941,119 +5091,6 @@
             }
           }
         }
-      },
-      "put": {
-        "tags": [
-          "psy-tests"
-        ],
-        "summary": "Replace Medical Test Questions",
-        "description": "Заменяет список вопросов до первого прохождения.",
-        "operationId": "replace_medical_test_questions_psy_tests__psy_test_id__questions_put",
-        "security": [
-          {
-            "cookieAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "psy_test_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Psy Test Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PsyTestQuestionsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PsyTestQuestionResponse"
-                  },
-                  "title": "Response Replace Medical Test Questions Psy Tests  Psy Test Id  Questions Put"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Пользователь не авторизован или токен недействителен",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Пользователь не авторизован или токен недействителен"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Недостаточно прав для выполнения операции",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Недостаточно прав для выполнения операции"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Запрашиваемый объект не найден",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Запрашиваемый объект не найден"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Конфликт состояния или версии объекта",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Конфликт состояния или версии объекта"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/psy-tests/{psy_test_id}/questions/{question_id}/image": {
@@ -5543,7 +5580,7 @@
           "psy-tests"
         ],
         "summary": "Save Medical Test Answer",
-        "description": "Сохраняет один ответ. Последний ответ завершает прохождение.",
+        "description": "Сохраняет ответ на следующий вопрос или изменяет уже сохранённый ответ до завершения теста.",
         "operationId": "save_medical_test_answer_psy_tests__psy_test_id__attempts__attempt_id__answers__question_id__put",
         "security": [
           {
@@ -7013,7 +7050,8 @@
         "enum": [
           "awaiting",
           "done",
-          "cancelled"
+          "cancelled",
+          "no_show"
         ],
         "title": "AppointmentStatus"
       },
@@ -8292,6 +8330,19 @@
             ],
             "title": "Url"
           },
+          "estimated_duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Duration Minutes"
+          },
           "questions": {
             "items": {
               "$ref": "#/components/schemas/PsyTestQuestionInput"
@@ -8308,6 +8359,78 @@
           "type"
         ],
         "title": "PsyTestCreateRequest"
+      },
+      "PsyTestListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TestType"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "estimated_duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Duration Minutes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "questions_count": {
+            "type": "integer",
+            "title": "Questions Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "type",
+          "created_at",
+          "questions_count"
+        ],
+        "title": "PsyTestListItem"
       },
       "PsyTestQuestionInput": {
         "properties": {
@@ -8423,24 +8546,6 @@
         ],
         "title": "PsyTestQuestionResponse"
       },
-      "PsyTestQuestionsRequest": {
-        "properties": {
-          "questions": {
-            "items": {
-              "$ref": "#/components/schemas/PsyTestQuestionInput"
-            },
-            "type": "array",
-            "maxItems": 100,
-            "minItems": 1,
-            "title": "Questions"
-          }
-        },
-        "type": "object",
-        "required": [
-          "questions"
-        ],
-        "title": "PsyTestQuestionsRequest"
-      },
       "PsyTestResponse": {
         "properties": {
           "id": {
@@ -8480,6 +8585,17 @@
               }
             ],
             "title": "Url"
+          },
+          "estimated_duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Duration Minutes"
           },
           "created_at": {
             "type": "string",
@@ -8626,6 +8742,19 @@
               }
             ],
             "title": "Url"
+          },
+          "estimated_duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Duration Minutes"
           }
         },
         "type": "object",
@@ -8957,6 +9086,55 @@
           "sick"
         ],
         "title": "PsychologistStatusType"
+      },
+      "PsychologistUpdateRequest": {
+        "properties": {
+          "experience": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Experience",
+            "default": ""
+          },
+          "qualification": {
+            "type": "string",
+            "maxLength": 128,
+            "title": "Qualification",
+            "default": ""
+          },
+          "consult_areas": {
+            "type": "string",
+            "maxLength": 128,
+            "title": "Consult Areas",
+            "default": ""
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Description",
+            "default": ""
+          },
+          "office": {
+            "type": "string",
+            "maxLength": 128,
+            "title": "Office",
+            "default": ""
+          },
+          "education": {
+            "type": "string",
+            "maxLength": 127,
+            "title": "Education",
+            "default": ""
+          },
+          "short_description": {
+            "type": "string",
+            "maxLength": 2047,
+            "title": "Short Description",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PsychologistUpdateRequest"
       },
       "QuestionType": {
         "type": "string",

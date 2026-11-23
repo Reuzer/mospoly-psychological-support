@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from mimetypes import guess_type
 
@@ -17,6 +18,7 @@ IMAGE_DIR = os.getenv("IMAGE_DIR", "/srv/images")
 
 # Разрешенные расширения
 EXTENSIONS_WHITE_LIST = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico"}
+AVATAR_FILENAME = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.webp")
 
 
 @router.get(
@@ -106,6 +108,16 @@ async def get_dynamic_image(filename: str):
 
     # 3. Используем только базовое имя файла (без пути)
     safe_filename = os.path.basename(filename)
+
+    # Каталог психологов использует /image/ и для фотографий из профиля.
+    if AVATAR_FILENAME.fullmatch(safe_filename):
+        avatar_path = config.AVATAR_DIR / safe_filename
+        if not avatar_path.is_symlink() and avatar_path.is_file():
+            return FileResponse(
+                avatar_path,
+                media_type="image/webp",
+                headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-cache"},
+            )
 
     # 4. Создаем безопасный путь
     base_dir = Path(IMAGE_DIR).resolve()

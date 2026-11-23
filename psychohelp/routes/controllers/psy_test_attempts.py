@@ -72,7 +72,7 @@ async def save_medical_test_answer(
     psy_test_id: UUID, attempt_id: UUID, question_id: UUID, data: PsyTestAnswerRequest,
     request: Request, current_user: User = Depends(_get_student),
 ) -> PsyTestAttemptResponse:
-    """Сохраняет один ответ. Последний ответ завершает прохождение."""
+    """Сохраняет ответ на следующий вопрос или изменяет уже сохранённый ответ до завершения теста."""
     progress = await attempts.save_answer(
         psy_test_id, attempt_id, current_user.id, question_id, **data.model_dump(),
     )

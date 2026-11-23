@@ -1,4 +1,4 @@
-"""PostgreSQL integration test for appointment reassignment.
+"""PostgreSQL integration tests for appointment state changes.
 
 The test uses only a disposable database supplied explicitly through
 PSYCHOHELP_TEST_DATABASE_URL.
@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import text
@@ -145,3 +146,31 @@ async def test_reassignment_updates_appointment_and_rejects_pending_request(data
         assert request.status == AppointmentRescheduleStatus.rejected
         assert request.responded_at is not None
         assert "переназначена" in request.rejection_comment
+
+
+async def test_appointment_no_show_expires_yesterday_and_its_pending_reschedule(database):
+    midnight = datetime(2026, 10, 24, tzinfo=ZoneInfo("Europe/Moscow"))
+    async with database.sessions.begin() as session:
+        missed = await session.get(Appointment, database.appointment_id)
+        missed.scheduled_time = midnight - timedelta(seconds=1)
+        today = Appointment(
+            patient_id=missed.patient_id, psychologist_id=missed.psychologist_id,
+            type=missed.type, status=AppointmentStatus.awaiting, scheduled_time=midnight,
+            last_change_time=missed.last_change_time, venue=missed.venue,
+        )
+        session.add(today)
+        await session.flush()
+        today_id = today.id
+
+    await appointments_repo.mark_appointment_no_shows(midnight, midnight)
+    await appointments_repo.mark_appointment_no_shows(midnight, midnight + timedelta(hours=1))
+
+    async with database.sessions() as session:
+        missed = await session.get(Appointment, database.appointment_id)
+        today = await session.get(Appointment, today_id)
+        reschedule = await session.get(AppointmentRescheduleRequest, database.request_id)
+        assert missed.status == AppointmentStatus.no_show
+        assert missed.last_change_time == midnight
+        assert today.status == AppointmentStatus.awaiting
+        assert reschedule.status == AppointmentRescheduleStatus.rejected
+        assert reschedule.responded_at == midnight

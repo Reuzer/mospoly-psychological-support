@@ -473,7 +473,6 @@ async def test_medical_test_resumes_and_counts_completed_attempts(database, asse
         assert (await other.get(results_path)).status_code == 403
         assert (await student.get(results_path)).status_code == 403
         assert (await psychologist.delete(image_path)).status_code == 409
-        assert (await psychologist.put(questions_path, json={"questions": [{"text": "Новый вопрос"}]})).status_code == 409
 
         first_answer_path = f"{attempt_path}/answers/{first['id']}"
         last_answer_path = f"{attempt_path}/answers/{second['id']}"
@@ -483,11 +482,15 @@ async def test_medical_test_resumes_and_counts_completed_attempts(database, asse
         assert saved.status_code == 200
         assert saved.json()["next_question"] == second
         assert (await student.post(path + "/attempts")).json() == saved.json()
+        edited = await student.put(first_answer_path, json={"answer": "Спал плохо"})
+        assert edited.status_code == 200
+        assert edited.json()["next_question"] == second
+        assert len(edited.json()["answers"]) == 1
         assert (await psychologist.get(record_path)).json()["tests_count"] == 0
         details_path = f"{results_path}/{attempt['id']}"
         reviewed = await psychologist.get(details_path)
         assert reviewed.status_code == 200 and reviewed.headers["cache-control"] == "no-store"
-        assert reviewed.json()["answers"][0]["answer"] == "Спал хорошо"
+        assert reviewed.json()["answers"][0]["answer"] == "Спал плохо"
         assert reviewed.json()["completed_at"] is None
 
         submitted = await asyncio.gather(*(
@@ -498,6 +501,8 @@ async def test_medical_test_resumes_and_counts_completed_attempts(database, asse
         assert submitted[1].json() == completed
         assert completed["completed_at"] and completed["next_question"] is None
         assert [item["question"] for item in completed["answers"]] == [first, second]
+        assert (await student.put(first_answer_path, json={"answer": "Спал хорошо"})).status_code == 409
+        assert (await student.put(first_answer_path, json={"answer": "Спал плохо"})).json() == completed
         assert (await student.put(last_answer_path, json={"answer": "Другой"})).status_code == 409
 
         second_attempt = (await student.post(path + "/attempts")).json()
@@ -585,21 +590,24 @@ async def test_medical_test_supports_text_and_both_choice_types(database, assess
             response = await psychologist.post("/psy-tests/", json=payload | {"questions": [invalid]})
             assert response.status_code == 422
 
-        response = await psychologist.post("/psy-tests/", json=payload | {"questions": questions})
+        response = await psychologist.post(
+            "/psy-tests/", json=payload | {"questions": questions, "estimated_duration_minutes": 5},
+        )
         assert response.status_code == 201, response.text
         path = f"/psy-tests/{response.json()['id']}"
-        original = (await psychologist.get(path + "/questions")).json()
-        updated = await psychologist.put(path + "/questions", json={"questions": questions})
-        assert updated.status_code == 200, updated.text
-        text_question, single, multiple = updated.json()
+        assert (await psychologist.put(path + "/questions", json={"questions": questions})).status_code == 405
+        text_question, single, multiple = (await psychologist.get(path + "/questions")).json()
+        catalog = (await psychologist.get("/psy-tests/")).json()
+        test = next(item for item in catalog if item["id"] == response.json()["id"])
+        assert test["questions_count"] == 3
+        assert test["estimated_duration_minutes"] == 5
+        updated = await psychologist.put(path, json={"estimated_duration_minutes": 8})
+        assert updated.json()["estimated_duration_minutes"] == 8
         assert text_question["type"] == "text" and text_question["options"] == []
         assert [item["text"] for item in single["options"]] == ["Хорошее", "Спокойное"]
         assert [item["text"] for item in multiple["options"]] == ["Сон", "Прогулка", "Общение"]
-        original_id = original[1]["options"][0]["id"]
         single_ids = [item["id"] for item in single["options"]]
         multiple_ids = [item["id"] for item in multiple["options"]]
-        assert original_id not in single_ids
-        assert (await psychologist.get(path + "/questions")).json() == updated.json()
 
         attempt = (await student.post(path + "/attempts")).json()
         answers_path = f"{path}/attempts/{attempt['id']}/answers"
@@ -613,7 +621,7 @@ async def test_medical_test_supports_text_and_both_choice_types(database, assess
 
         for body in (
             {"option_ids": single_ids},
-            {"option_ids": [original_id]},
+            {"option_ids": [str(uuid4())]},
             {"option_ids": [multiple_ids[0]]},
             {"answer": "Хорошее"},
             {"answer": "Хорошее", "option_ids": [single_ids[0]]},
@@ -623,6 +631,9 @@ async def test_medical_test_supports_text_and_both_choice_types(database, assess
         assert saved.status_code == 200
         assert saved.json()["next_question"] == multiple
         assert (await student.post(path + "/attempts")).json() == saved.json()
+        edited = await student.put(single_path, json={"option_ids": [single_ids[1]]})
+        assert edited.status_code == 200
+        assert edited.json()["next_question"] == multiple
 
         for invalid_ids in ([], [multiple_ids[0], multiple_ids[0]], [single_ids[0], multiple_ids[0]]):
             assert (await student.put(multiple_path, json={"option_ids": invalid_ids})).status_code == 422
@@ -635,7 +646,7 @@ async def test_medical_test_supports_text_and_both_choice_types(database, assess
         assert (await student.put(multiple_path, json={"option_ids": multiple_ids[:2]})).json() == result
         assert (await student.put(multiple_path, json={"option_ids": multiple_ids[1:]})).status_code == 409
         assert result["answers"][0]["answer"] == "Всё хорошо"
-        assert result["answers"][1]["option_ids"] == [single_ids[0]]
+        assert result["answers"][1]["option_ids"] == [single_ids[1]]
         assert result["answers"][2]["option_ids"] == multiple_ids[:2]
         assert result["answers"][2]["question"] == multiple
         reviewed = await psychologist.get(f"{record_path}/test-attempts/{attempt['id']}")

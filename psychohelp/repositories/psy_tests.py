@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -9,16 +9,22 @@ from psychohelp.models.psy_tests import PsyTest, PsyTestAttempt, PsyTestQuestion
 from psychohelp.services.psy_test_exceptions import PsyTestNotFound, PsyTestStateConflict
 
 
-async def get_psy_test_list(skip: int = 0, take: int = 100) -> list[PsyTest]:
+async def get_psy_test_list(skip: int = 0, take: int = 100) -> list[tuple[PsyTest, int]]:
+    questions_count = (
+        select(func.count())
+        .select_from(PsyTestQuestion)
+        .where(PsyTestQuestion.test_id == PsyTest.id)
+        .scalar_subquery()
+    )
     async with get_async_db() as session:
         result = await session.execute(
-            select(PsyTest)
+            select(PsyTest, questions_count)
             .where(PsyTest.archived.is_(False))
             .order_by(PsyTest.created_at.desc())
             .offset(skip)
             .limit(take)
         )
-        return list(result.scalars().all())
+        return [(test, count) for test, count in result]
 
 
 async def get_psy_test_by_id(psy_test_id: UUID) -> PsyTest | None:
@@ -92,20 +98,6 @@ async def list_medical_test_questions(test_id: UUID) -> list[PsyTestQuestion]:
         if test.archived:
             raise PsyTestNotFound("Медицинский тест не найден")
         return await get_questions(session, test_id)
-
-
-async def replace_medical_test_questions(
-    test_id: UUID, questions: list[dict],
-) -> tuple[list[PsyTestQuestion], list[tuple[UUID, str]]]:
-    async with get_async_db() as session:
-        async with session.begin():
-            await _require_editable_questions(session, test_id)
-            old_questions = await get_questions(session, test_id)
-            old_images = [(question.id, question.image) for question in old_questions if question.image]
-            await session.execute(delete(PsyTestQuestion).where(PsyTestQuestion.test_id == test_id))
-            new_questions = _new_questions(test_id, questions)
-            session.add_all(new_questions)
-        return new_questions, old_images
 
 
 async def update_medical_test_question_image(

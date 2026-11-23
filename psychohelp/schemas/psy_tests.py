@@ -7,6 +7,7 @@ from psychohelp.models.psy_tests import QuestionType, TestType
 
 
 MAX_QUESTION_OPTIONS = 100
+EstimatedDuration = Annotated[int, Field(gt=0, le=2_147_483_647, strict=True)]
 
 
 class PsyTestQuestionOptionInput(BaseModel):
@@ -37,16 +38,13 @@ class PsyTestQuestionInput(BaseModel):
         return self
 
 
-class PsyTestQuestionsRequest(BaseModel):
-    questions: list[PsyTestQuestionInput] = Field(min_length=1, max_length=100)
-
-
 class PsyTestCreateRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: str = Field(..., min_length=1)
     image: Optional[str] = Field(None, max_length=1024)
     type: TestType  # Обязательное поле при создании
     url: HttpUrl | None = None
+    estimated_duration_minutes: EstimatedDuration | None = None
     questions: list[PsyTestQuestionInput] = Field(default_factory=list, max_length=100)
 
     @model_validator(mode="after")
@@ -65,6 +63,7 @@ class PsyTestUpdateRequest(BaseModel):
     image: Optional[str] = Field(None, max_length=1024)
     type: Optional[TestType] = None
     url: HttpUrl | None = None
+    estimated_duration_minutes: EstimatedDuration | None = None
 
 
 class PsyTestResponse(BaseModel):
@@ -74,10 +73,15 @@ class PsyTestResponse(BaseModel):
     image: Optional[str] = None
     type: TestType
     url: str | None = None
+    estimated_duration_minutes: int | None = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class PsyTestListItem(PsyTestResponse):
+    questions_count: int
 
 
 class PsyTestQuestionOptionResponse(BaseModel):

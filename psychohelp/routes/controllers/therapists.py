@@ -13,7 +13,9 @@ from psychohelp.schemas.errors import error_responses
 from psychohelp.config.logging import get_logger
 from psychohelp.services.psychologists import (
     get_psychologist_by_id,
+    get_psychologist_by_user_id,
     get_psychologists as srv_get_psychologists,
+    update_own_psychologist,
     create_psychologist,
     delete_psychologist,
 )
@@ -22,7 +24,9 @@ from psychohelp.repositories.psychologists.exceptions import (
     PsychologistRoleNotFoundException,
     PsychologistAlreadyExistsException,
 )
-from psychohelp.schemas.psychologists import PsychologistResponse, PsychologistCreateRequest
+from psychohelp.schemas.psychologists import (
+    PsychologistResponse, PsychologistCreateRequest, PsychologistUpdateRequest,
+)
 from psychohelp.services.rbac.permissions import require_permission, user_has_permission
 from psychohelp.constants.rbac import PermissionCode, RoleCode
 from psychohelp.dependencies.auth import get_current_user
@@ -38,6 +42,33 @@ from sqlalchemy import select
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/therapists", tags=["therapists"])
+
+
+async def _require_psychologist(current_user: User = Depends(get_current_user)) -> User:
+    if not any(role.code == RoleCode.PSYCHOLOGIST for role in current_user.roles):
+        raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Требуется роль психолога")
+    return current_user
+
+
+@router.get("/me", responses=error_responses(401, 403, 404), response_model=PsychologistResponse)
+async def get_own_psychologist(current_user: User = Depends(_require_psychologist)) -> PsychologistResponse:
+    """Получить собственный профессиональный профиль."""
+    psychologist = await get_psychologist_by_user_id(current_user.id)
+    if psychologist is None:
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Профиль психолога не найден")
+    return PsychologistResponse.from_orm_psychologist(psychologist)
+
+
+@router.patch("/me", responses=error_responses(401, 403, 404), response_model=PsychologistResponse)
+async def patch_own_psychologist(
+    data: PsychologistUpdateRequest,
+    current_user: User = Depends(_require_psychologist),
+) -> PsychologistResponse:
+    """Обновить переданные поля собственного профессионального профиля."""
+    psychologist = await update_own_psychologist(current_user.id, data.model_dump(exclude_unset=True))
+    if psychologist is None:
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Профиль психолога не найден")
+    return PsychologistResponse.from_orm_psychologist(psychologist)
 
 
 @router.get("/{psychologist_id}", responses=error_responses(404), response_model=PsychologistResponse)

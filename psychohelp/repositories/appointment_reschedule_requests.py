@@ -32,8 +32,8 @@ def _validate_reschedule_times(reschedule_request: AppointmentRescheduleRequest)
 
 
 def _ensure_appointment_open(appointment: Appointment) -> None:
-    if appointment.status in (AppointmentStatus.done, AppointmentStatus.cancelled):
-        raise ValueError("Нельзя перенести завершенную или отмененную запись")
+    if appointment.status != AppointmentStatus.awaiting:
+        raise ValueError("Перенести можно только ожидающую запись")
 
 
 async def create_reschedule_request(

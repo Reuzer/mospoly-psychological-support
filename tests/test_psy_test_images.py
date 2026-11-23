@@ -34,7 +34,7 @@ def psy_test_state(monkeypatch, tmp_path):
     psy_test = SimpleNamespace(
         id=uuid4(), title="Тест", description="Описание теста", image=None,
         type=psy_test_models.TestType.ENTERTAINING.value, created_at="2026-11-08T00:00:00Z",
-        url="https://example.org/test",
+        url="https://example.org/test", estimated_duration_minutes=None,
     )
     state = {psy_test.id: psy_test}
 
@@ -42,7 +42,7 @@ def psy_test_state(monkeypatch, tmp_path):
         return state.get(psy_test_id)
 
     async def get_list(skip=0, take=100):
-        return list(state.values())[skip:skip + take]
+        return [(item, 0) for item in list(state.values())[skip:skip + take]]
 
     async def update(psy_test_id, data):
         current = state.get(psy_test_id)

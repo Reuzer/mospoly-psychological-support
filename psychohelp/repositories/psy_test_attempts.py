@@ -161,8 +161,13 @@ async def save_answer(
             selected = _validate_answer_options(question, answer, option_ids)
 
             if existing is not None:
-                if existing.answer != answer or existing.option_ids != selected:
-                    raise PsyTestStateConflict("Ответ на этот вопрос уже сохранён")
+                if existing.answer == answer and existing.option_ids == selected:
+                    return _progress(attempt, title, questions, answers)
+                if attempt.completed_at is not None:
+                    raise PsyTestStateConflict("Тест уже завершён")
+                existing.answer = answer
+                existing.option_ids = selected
+                existing.answered_at = datetime.now(timezone.utc)
                 return _progress(attempt, title, questions, answers)
 
             now = datetime.now(timezone.utc)

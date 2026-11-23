@@ -16,6 +16,7 @@ from psychohelp.models.users import User
 from psychohelp.config.config import get_async_db
 from psychohelp.services.appointments import exceptions as exc
 
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
@@ -52,6 +53,34 @@ async def get_appointment_by_id(appointment_id: UUID, user_id: UUID) -> Appointm
         
         result = await session.execute(query)
         return result.scalar_one_or_none()
+
+
+async def mark_appointment_no_shows(day_start: datetime, now: datetime) -> None:
+    async with get_async_db() as session:
+        # Запросы переноса блокируются после встреч, как и при ручном переносе.
+        expired_appointments = (
+            update(Appointment)
+            .where(
+                Appointment.status == AppointmentStatus.awaiting,
+                Appointment.scheduled_time < day_start,
+            )
+            .values(status=AppointmentStatus.no_show, last_change_time=now)
+            .returning(Appointment.id)
+            .cte("expired_appointments")
+        )
+        await session.execute(
+            update(AppointmentRescheduleRequest)
+            .where(
+                AppointmentRescheduleRequest.appointment_id.in_(select(expired_appointments.c.id)),
+                AppointmentRescheduleRequest.status == AppointmentRescheduleStatus.pending,
+            )
+            .values(
+                status=AppointmentRescheduleStatus.rejected,
+                rejection_comment="День записи завершился",
+                responded_at=now,
+            )
+        )
+        await session.commit()
 
 
 async def is_appointment_slot_available(
@@ -167,8 +196,8 @@ async def cancel_appointment_by_id(
         if is_psychologist and not is_emergency:
             raise PermissionError("Психолог может отменить запись только при ЧС")
 
-        if appointment.status in (AppointmentStatus.done, AppointmentStatus.cancelled):
-            raise ValueError("Завершенную или отмененную запись нельзя отменить повторно")
+        if appointment.status != AppointmentStatus.awaiting:
+            raise ValueError("Отменить можно только ожидающую запись")
 
         appointment.status = AppointmentStatus.cancelled
         appointment.cancel_reason = cancel_reason
@@ -331,8 +360,8 @@ async def complete_appointment_by_psychologist(
             raise ValueError("Встреча не найдена")
         if appointment.psychologist.user_id != psychologist_id:
             raise PermissionError("Только назначенный психолог может завершить прием")
-        if appointment.status in (AppointmentStatus.done, AppointmentStatus.cancelled):
-            raise ValueError("Нельзя завершить эту встречу (она уже завершена или отменена)")
+        if appointment.status != AppointmentStatus.awaiting:
+            raise ValueError("Завершить можно только ожидающую запись")
 
         appointment.status = AppointmentStatus.done
         appointment.conclusion = patient_comment

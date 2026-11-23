@@ -13,8 +13,8 @@ from psychohelp.models.users import User
 from psychohelp.routes.psy_test_route import PsyTestRoute
 from psychohelp.schemas.psy_tests import (
     PsyTestCreateRequest,
+    PsyTestListItem,
     PsyTestQuestionResponse,
-    PsyTestQuestionsRequest,
     PsyTestResponse,
     PsyTestUpdateRequest,
 )
@@ -55,12 +55,11 @@ def _image_root_path(image: str | None, root_path: str, *, add: bool) -> str | N
     return image
 
 
-def _psy_test_response(psy_test_item, request: Request | None):
-    root_path = request.scope.get("root_path", "").rstrip("/") if request else ""
-    if not root_path:
-        return psy_test_item
+def _psy_test_response(psy_test_item, request: Request | None) -> PsyTestResponse:
     response = PsyTestResponse.model_validate(psy_test_item)
-    response.image = _image_root_path(response.image, root_path, add=True)
+    root_path = request.scope.get("root_path", "").rstrip("/") if request else ""
+    if root_path:
+        response.image = _image_root_path(response.image, root_path, add=True)
     return response
 
 
@@ -81,14 +80,17 @@ def question_response(question: PsyTestQuestion, request: Request) -> PsyTestQue
     return response
 
 
-@router.get("/", response_model=list[PsyTestResponse])
+@router.get("/", response_model=list[PsyTestListItem])
 async def get_psy_test_list(
     skip: int = Query(0, ge=0, description="Количество записей для пропуска"),
     take: int = Query(100, gt=0, le=100, description="Количество записей для получения"),
     request: Request = None,
-) -> list[PsyTestResponse]:
+) -> list[PsyTestListItem]:
     psy_test_list = await psy_test_service.get_psy_test_list(skip=skip, take=take)
-    return [_psy_test_response(item, request) for item in psy_test_list]
+    return [
+        PsyTestListItem(**_psy_test_response(item, request).model_dump(), questions_count=count)
+        for item, count in psy_test_list
+    ]
 
 
 @router.get("/{psy_test_id}", responses=error_responses(404), response_model=PsyTestResponse)
@@ -119,12 +121,11 @@ async def update_psy_test(
     request: Request = None,
 ) -> PsyTestResponse:
     await _require_test_write(psy_test_id, current_user, PermissionCode.TESTS_EDIT)
-    # Игнорируем поля, которые не прислали, и null для обязательных полей;
-    # image: null явно удаляет фотографию
+    # Игнорируем поля, которые не прислали, и null для обязательных полей.
     update_data = {
         field: value
         for field, value in data.model_dump(exclude_unset=True).items()
-        if value is not None or field in {"image", "url"}
+        if value is not None or field in {"image", "url", "estimated_duration_minutes"}
     }
     psy_test_item = await psy_test_service.update_psy_test(
         psy_test_id, _psy_test_data(update_data, request),
@@ -199,20 +200,6 @@ async def delete_psy_test_image(
 async def get_medical_test_questions(psy_test_id: UUID, request: Request) -> list[PsyTestQuestionResponse]:
     """Показывает психологу или администратору вопросы в порядке прохождения."""
     questions = await psy_test_repository.list_medical_test_questions(psy_test_id)
-    return [question_response(question, request) for question in questions]
-
-
-@router.put(
-    "/{psy_test_id}/questions", response_model=list[PsyTestQuestionResponse],
-    dependencies=[Depends(_require_medical_test_staff)], responses=error_responses(401, 403, 404, 409),
-)
-async def replace_medical_test_questions(
-    psy_test_id: UUID, data: PsyTestQuestionsRequest, request: Request,
-) -> list[PsyTestQuestionResponse]:
-    """Заменяет список вопросов до первого прохождения."""
-    questions = await psy_test_service.replace_medical_test_questions(
-        psy_test_id, data.model_dump()["questions"],
-    )
     return [question_response(question, request) for question in questions]
 
 

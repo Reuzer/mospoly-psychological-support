@@ -55,6 +55,22 @@ async def get_psychologists(skip: int = 0, take: int = 10) -> list[Psychologist]
     return result
 
 
+async def update_own_psychologist(user_id: UUID, data: dict) -> Psychologist | None:
+    async with get_async_db() as session:
+        async with session.begin():
+            psychologist = await session.scalar(
+                select(Psychologist)
+                .options(selectinload(Psychologist.user))
+                .where(Psychologist.user_id == user_id)
+                .with_for_update()
+            )
+            if psychologist is None:
+                return None
+            for field, value in data.items():
+                setattr(psychologist, field, value)
+        return psychologist
+
+
 async def create_psychologist(user_id: UUID, psychologist_data: dict) -> Psychologist:
     async with get_async_db() as session:
         async with session.begin():
@@ -62,6 +78,7 @@ async def create_psychologist(user_id: UUID, psychologist_data: dict) -> Psychol
                 select(User)
                 .options(selectinload(User.roles))
                 .where(User.id == user_id)
+                .with_for_update()
             )
             user = user_result.scalar_one_or_none()
             

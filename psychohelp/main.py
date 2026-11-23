@@ -1,4 +1,6 @@
+import asyncio
 import os
+from contextlib import suppress
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -9,11 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from psychohelp.config.config import (
     Base,
+    async_engine,
     config,
 )
 from psychohelp.config.logging import setup_logging, get_logger
 from psychohelp.routes import api_router
 from psychohelp.routes.controllers.users import limiter
+from psychohelp.services.appointments.no_shows import run_appointment_no_show_job
 
 from psychohelp.models import (
     users,
@@ -101,10 +105,16 @@ def get_application() -> FastAPI:
 
         if config.RESET_DB_ON_START:
             await reset_database(engine)
+        application.state.appointment_no_show_job = asyncio.create_task(run_appointment_no_show_job())
         logger.info("Application started successfully")
 
     @application.on_event("shutdown")
     async def on_shutdown() -> None:
+        job = application.state.appointment_no_show_job
+        job.cancel()
+        with suppress(asyncio.CancelledError):
+            await job
+        await async_engine.dispose()
         logger.info("Shutting down application")
 
     return application

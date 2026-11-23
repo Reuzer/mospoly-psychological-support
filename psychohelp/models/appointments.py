@@ -17,6 +17,7 @@ class AppointmentStatus(enum.Enum):
     awaiting = "awaiting"
     done = "done"
     cancelled = "cancelled"
+    no_show = "no_show"
 
 
 class Appointment(Base):

@@ -3,7 +3,9 @@ from uuid import UUID
 from psychohelp.models.psychologists import Psychologist
 from psychohelp.repositories.psychologists.psychologists import (
     get_psychologist_by_id as repo_get_psychologist_by_id,
+    get_psychologist_by_user_id,
     get_psychologists as repo_get_psychologists,
+    update_own_psychologist,
     create_psychologist as repo_create_psychologist,
     delete_psychologist as repo_delete_psychologist,
 )
